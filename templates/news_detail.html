@@ -1,5 +1,10 @@
 {% extends 'base.html' %}
 {% block title %}{{ article.title }} — Jornal Carlos Peixoto{% endblock %}
+{% block social_type %}article{% endblock %}
+{% block social_title %}{{ article.title }}{% endblock %}
+{% block social_description %}{{ article.summary }}{% endblock %}
+{% block social_image %}{% if article.image_data %}{{ url_for('uploaded_file', news_id=article.id, _external=True) }}{% else %}{{ url_for('static', filename='img/icone.png', v='social-1', _external=True) }}{% endif %}{% endblock %}
+{% block social_image_alt %}{% if article.image_data %}Imagem da notícia {{ article.title }}{% else %}Ícone do Jornal Carlos Peixoto{% endif %}{% endblock %}
 
 {% block content %}
 <article class="article container">

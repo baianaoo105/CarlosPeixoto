@@ -4,6 +4,15 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Jornal Carlos Peixoto — notícia, serviço e comunidade.">
   <title>{% block title %}Jornal Carlos Peixoto{% endblock %}</title>
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:site_name" content="Jornal Carlos Peixoto">
+  <meta property="og:type" content="{% block social_type %}website{% endblock %}">
+  <meta property="og:title" content="{% block social_title %}Jornal Carlos Peixoto{% endblock %}">
+  <meta property="og:description" content="{% block social_description %}Notícia, serviço e comunidade. Informação que aproxima.{% endblock %}">
+  <meta property="og:url" content="{{ request.base_url }}">
+  <meta property="og:image" content="{% block social_image %}{{ url_for('static', filename='img/icone.png', v='social-1', _external=True) }}{% endblock %}">
+  <meta property="og:image:alt" content="{% block social_image_alt %}Ícone do Jornal Carlos Peixoto{% endblock %}">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" href="{{ url_for('static', filename='img/icone.png') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
