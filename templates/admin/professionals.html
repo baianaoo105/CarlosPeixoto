@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block title %}Profissionais — Painel editorial{% endblock %}
+{% block content %}
+<section class="section container">
+  <div class="section-title">
+    <div>
+      <p class="eyebrow">Painel editorial</p>
+      <h1>Profissionais e serviços</h1>
+      <p class="dashboard-intro">Escolha uma editoria para atualizar os dados exibidos no site.</p>
+    </div>
+    <a class="button ghost" href="{{ url_for('admin_dashboard') }}">← Voltar ao painel</a>
+  </div>
+
+  <div class="professional-admin-grid">
+    {% for professional in professionals %}
+    <article class="professional-admin-card">
+      <div class="professional-admin-avatar">{{ professional.name[0] }}</div>
+      <div>
+        <span class="tag">{{ professional.category }}</span>
+        <h2>{{ professional.name }}</h2>
+        <p>{{ professional.role }}</p>
+        <p><strong>Horário:</strong> {{ professional.hours }}</p>
+        <a class="button" href="{{ url_for('admin_professional_edit', professional_id=professional.id) }}">Editar dados</a>
+      </div>
+    </article>
+    {% else %}
+    <p>Nenhum profissional cadastrado.</p>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

@@ -5,6 +5,3 @@ jornal.db
 .env
 .env.*
 .vercel/
-
-.vercel
-.env*

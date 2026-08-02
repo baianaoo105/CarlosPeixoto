@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block title %}Editar {{ professional.category }} — Painel editorial{% endblock %}
+{% block content %}
+<section class="form-page container">
+  <form method="post" class="panel">
+    <p class="eyebrow">{{ professional.category }}</p>
+    <h1>Editar apresentação profissional</h1>
+    <div class="field-grid">
+      <label>Nome
+        <input name="name" maxlength="120" value="{{ request.form.get('name', professional.name) }}" required>
+      </label>
+      <label>Idade
+        <input type="number" name="age" min="18" max="120" value="{{ request.form.get('age', professional.age) }}" required>
+      </label>
+      <label class="wide">Função exercida
+        <input name="role" maxlength="150" value="{{ request.form.get('role', professional.role) }}" required>
+      </label>
+      <label class="wide">Endereço do escritório ou atendimento
+        <input name="address" maxlength="250" value="{{ request.form.get('address', professional.address or '') }}" placeholder="Deixe vazio quando não se aplicar">
+      </label>
+      <label class="wide">Horário de atendimento
+        <input name="hours" maxlength="250" value="{{ request.form.get('hours', professional.hours) }}" required>
+      </label>
+      <label class="wide">Informações e serviços — um item por linha
+        <textarea name="sections" rows="9" required>{% if request.form.get('sections') is not none %}{{ request.form.get('sections') }}{% else %}{{ professional.sections.split('|')|join('\n') }}{% endif %}</textarea>
+      </label>
+    </div>
+    <div class="form-actions">
+      <button class="button" type="submit">Salvar dados</button>
+      <a class="button ghost" href="{{ url_for('admin_professionals') }}">Cancelar</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

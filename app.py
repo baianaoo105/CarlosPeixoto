@@ -341,6 +341,66 @@ def admin_conversations():
     return render_template("admin/conversations.html", conversations=conversations)
 
 
+@app.route("/admin/profissionais")
+@admin_required
+def admin_professionals():
+    professionals = db.session.execute(db.select(Professional)).scalars().all()
+    professional_by_category = {item.category: item for item in professionals}
+    ordered_professionals = [
+        professional_by_category[name]
+        for name in CATEGORIES
+        if name in professional_by_category
+    ]
+    return render_template(
+        "admin/professionals.html", professionals=ordered_professionals
+    )
+
+
+@app.route("/admin/profissional/<int:professional_id>/editar", methods=["GET", "POST"])
+@admin_required
+def admin_professional_edit(professional_id):
+    professional = db.get_or_404(Professional, professional_id)
+    if request.method == "POST":
+        name = request.form.get("name", "").strip()
+        role = request.form.get("role", "").strip()
+        address = request.form.get("address", "").strip()
+        hours = request.form.get("hours", "").strip()
+        age_text = request.form.get("age", "").strip()
+        section_lines = [
+            line.strip()
+            for line in request.form.get("sections", "").splitlines()
+            if line.strip()
+        ]
+
+        try:
+            age = int(age_text)
+        except ValueError:
+            age = 0
+
+        if not name or not role or not hours or not section_lines:
+            flash("Preencha nome, função, horário e pelo menos um serviço.", "error")
+        elif not 18 <= age <= 120:
+            flash("Informe uma idade válida entre 18 e 120 anos.", "error")
+        elif len(name) > 120 or len(role) > 150 or len(address) > 250 or len(hours) > 250:
+            flash("Um dos campos ultrapassa o limite permitido.", "error")
+        elif any(len(section) > 180 for section in section_lines):
+            flash("Cada informação ou serviço deve ter no máximo 180 caracteres.", "error")
+        else:
+            professional.name = name
+            professional.age = age
+            professional.role = role
+            professional.address = address or None
+            professional.hours = hours
+            professional.sections = "|".join(section_lines)
+            db.session.commit()
+            flash(f"Perfil de {professional.category} atualizado.", "success")
+            return redirect(url_for("admin_professionals"))
+
+    return render_template(
+        "admin/professional_form.html", professional=professional
+    )
+
+
 @app.route("/admin/conversa/<conversation_id>", methods=["GET", "POST"])
 @admin_required
 def admin_conversation(conversation_id):
