@@ -1,6 +1,7 @@
 :root {
   --site-background: #d5edf8;
   --site-background-light: #e8f7fd;
+  --paper: #cfeaf7;
 }
 
 body {
@@ -32,12 +33,28 @@ main {
 }
 
 .page-head {
-  background: linear-gradient(110deg, #fffaf0, #dff3fd);
+  background: linear-gradient(110deg, #d5eef9 0%, #bfe3f3 100%);
 }
 
 .journalist,
 .subtle {
-  background: rgba(255, 250, 240, .93);
+  background: rgba(204, 232, 245, .96);
+}
+
+.panel,
+.comment-form,
+.chat-form,
+.category-admin-card {
+  background: #d7edf8;
+}
+
+.service-list div {
+  background: #e8f7fd;
+}
+
+.journalist .chips span {
+  border-color: #b8dcea;
+  background: #f4fbfe;
 }
 
 @media (max-width: 760px) {
