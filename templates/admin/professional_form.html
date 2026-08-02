@@ -33,19 +33,30 @@
       {% if professional and professional.image_data %}
       <div class="wide current-professional-photo">
         <img src="{{ url_for('professional_photo', professional_id=professional.id) }}" alt="Foto atual de {{ professional.name }}">
-        <label class="check">
-          <input type="checkbox" name="remove_photo">
-          Remover a foto atual
-        </label>
+        <label class="check"><input type="checkbox" name="remove_photo"> Remover a foto atual</label>
       </div>
       {% endif %}
 
       <label class="wide">Função exercida
         <input name="role" maxlength="150" value="{{ request.form.get('role', professional.role if professional else '') }}" required>
       </label>
+
       <label class="wide">Endereço do escritório ou atendimento
         <input name="address" maxlength="250" value="{{ request.form.get('address', (professional.address or '') if professional else '') }}" placeholder="Deixe vazio quando não se aplicar">
       </label>
+
+      <label class="wide">Foto do escritório ou local de atendimento
+        <input type="file" name="office_photo" accept="image/png,image/jpeg,image/webp,image/gif">
+        <span class="hint">Campo opcional. A imagem aparecerá em formato retangular no perfil.</span>
+      </label>
+
+      {% if professional and professional.office_image_data %}
+      <div class="wide current-office-photo">
+        <img src="{{ url_for('professional_office_photo', professional_id=professional.id) }}" alt="Foto atual do local de atendimento de {{ professional.name }}">
+        <label class="check"><input type="checkbox" name="remove_office_photo"> Remover a foto do escritório</label>
+      </div>
+      {% endif %}
+
       <label class="wide">Horário de atendimento
         <input name="hours" maxlength="250" value="{{ request.form.get('hours', professional.hours if professional else '') }}" required>
       </label>

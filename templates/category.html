@@ -18,17 +18,23 @@
     {% else %}
     <div class="avatar" aria-hidden="true">{{ person.name[0] }}</div>
     {% endif %}
+
     <div class="profile-content">
       <span class="tag">Profissional em destaque</span>
       <h2>{{ person.name }}</h2>
       <p class="lead">{{ person.age }} anos • {{ person.role }}</p>
 
       <div class="profile-details">
-        {% if person.address %}
-        <p><strong>Endereço:</strong> {{ person.address }}</p>
-        {% endif %}
+        {% if person.address %}<p><strong>Endereço:</strong> {{ person.address }}</p>{% endif %}
         <p><strong>Horário de atendimento:</strong> {{ person.hours }}</p>
       </div>
+
+      {% if person.office_image_data %}
+      <figure class="office-photo">
+        <img src="{{ url_for('professional_office_photo', professional_id=person.id) }}" alt="Escritório ou local de atendimento de {{ person.name }}">
+        <figcaption>Escritório ou local de atendimento</figcaption>
+      </figure>
+      {% endif %}
 
       <h3>Informações e serviços</h3>
       <div class="service-list">

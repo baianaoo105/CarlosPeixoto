@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/professionals.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/news.css') }}">
 </head>
-<body>
+<body{% if session.get('admin') and request.path.startswith('/admin') and request.endpoint != 'admin_login' %} data-admin-session-token="{{ session.get('admin_token', '') }}" data-admin-session-fresh="{{ '1' if request.args.get('login') == '1' else '0' }}" data-admin-logout-url="{{ url_for('admin_logout', relogin=1) }}"{% endif %}>
   <a class="skip" href="#conteudo">Pular para o conteúdo</a>
   <header class="site-header">
     <div class="topbar container"><span>Notícia • Serviço • Comunidade</span><a href="{{ url_for('admin_dashboard') }}">Painel editorial</a></div>
@@ -25,4 +25,5 @@
   </a>
   <footer><div class="container footer-grid"><div><strong>Jornal Carlos Peixoto</strong><p>Jornalismo local, informação de serviço e compromisso com a comunidade.</p></div><div><strong>Editorias</strong>{% for item in category_links %}<a href="{{ url_for('category', slug=item.slug) }}">{{ item.name }}</a>{% endfor %}</div><div><strong>Contatos</strong><a href="{{ url_for('visitor_chat') }}">Falar com o ADM</a><a href="https://discord.gg/Yf8QtDzY" target="_blank" rel="noopener noreferrer">Servidor no Discord ↗</a></div></div><div class="container copyright">© {{ current_year }} Jornal Carlos Peixoto. Todos os direitos reservados.</div></footer>
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/admin_session.js') }}"></script>
 </body></html>

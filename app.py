@@ -97,6 +97,8 @@ class Professional(db.Model):
     sections = db.Column(db.Text, nullable=False)
     image_mimetype = db.Column(db.String(80))
     image_data = db.Column(db.LargeBinary)
+    office_image_mimetype = db.Column(db.String(80))
+    office_image_data = db.Column(db.LargeBinary)
 
 
 class Conversation(db.Model):
@@ -193,6 +195,8 @@ def migrate_professional_images():
     additions = {
         "image_mimetype": "VARCHAR(80)",
         "image_data": binary_type,
+        "office_image_mimetype": "VARCHAR(80)",
+        "office_image_data": binary_type,
     }
 
     with db.engine.begin() as connection:
@@ -248,6 +252,8 @@ def admin_required(view):
         if not session.get("admin"):
             flash("Entre no painel para continuar.", "warning")
             return redirect(url_for("admin_login", next=request.path))
+        if not session.get("admin_token"):
+            session["admin_token"] = uuid4().hex
         return view(*args, **kwargs)
     return wrapped
 
@@ -357,8 +363,14 @@ def admin_login():
             return render_template("admin/login.html"), 503
         if request.form.get("password") == expected:
             session["admin"] = True
+            session["admin_token"] = uuid4().hex
+            session.permanent = False
             flash("Acesso liberado.", "success")
-            return redirect(request.args.get("next") or url_for("admin_dashboard"))
+            target = request.args.get("next", "")
+            if not target.startswith("/admin") or target.startswith("//"):
+                target = url_for("admin_dashboard")
+            separator = "&" if "?" in target else "?"
+            return redirect(f"{target}{separator}login=1")
         flash("Senha incorreta.", "error")
     return render_template("admin/login.html")
 
@@ -366,6 +378,10 @@ def admin_login():
 @app.route("/admin/sair")
 def admin_logout():
     session.pop("admin", None)
+    session.pop("admin_token", None)
+    if request.args.get("relogin"):
+        flash("A sessão anterior foi encerrada. Digite a senha novamente.", "warning")
+        return redirect(url_for("admin_login"))
     return redirect(url_for("index"))
 
 
@@ -451,6 +467,17 @@ def professional_photo_values():
     }
 
 
+def professional_office_photo_values():
+    photo = request.files.get("office_photo")
+    if not photo or not photo.filename:
+        return None
+    saved = save_image(photo)
+    return {
+        "office_image_mimetype": saved["image_mimetype"],
+        "office_image_data": saved["image_data"],
+    }
+
+
 @app.route("/admin/profissional/novo", methods=["GET", "POST"])
 @admin_required
 def admin_professional_create():
@@ -460,6 +487,10 @@ def admin_professional_create():
             photo_values = professional_photo_values()
             if photo_values:
                 for key, value in photo_values.items():
+                    setattr(professional, key, value)
+            office_photo_values = professional_office_photo_values()
+            if office_photo_values:
+                for key, value in office_photo_values.items():
                     setattr(professional, key, value)
             db.session.add(professional)
             db.session.commit()
@@ -485,6 +516,13 @@ def admin_professional_edit(professional_id):
             elif request.form.get("remove_photo"):
                 professional.image_mimetype = None
                 professional.image_data = None
+            office_photo_values = professional_office_photo_values()
+            if office_photo_values:
+                for key, value in office_photo_values.items():
+                    setattr(professional, key, value)
+            elif request.form.get("remove_office_photo"):
+                professional.office_image_mimetype = None
+                professional.office_image_data = None
             db.session.commit()
             flash(f"Perfil de {professional.category} atualizado.", "success")
             return redirect(url_for("admin_professionals"))
@@ -628,6 +666,17 @@ def professional_photo(professional_id):
     return Response(
         professional.image_data,
         mimetype=professional.image_mimetype or "application/octet-stream",
+    )
+
+
+@app.route("/uploads/profissional/<int:professional_id>/escritorio")
+def professional_office_photo(professional_id):
+    professional = db.get_or_404(Professional, professional_id)
+    if not professional.office_image_data:
+        abort(404)
+    return Response(
+        professional.office_image_data,
+        mimetype=professional.office_image_mimetype or "application/octet-stream",
     )
 
 
