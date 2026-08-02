@@ -13,7 +13,11 @@
 <section class="section container professional-grid">
   {% for person in professionals %}
   <article class="profile">
+    {% if person.image_data %}
+    <img class="profile-photo" src="{{ url_for('professional_photo', professional_id=person.id) }}" alt="Foto de {{ person.name }}">
+    {% else %}
     <div class="avatar" aria-hidden="true">{{ person.name[0] }}</div>
+    {% endif %}
     <div class="profile-content">
       <span class="tag">Profissional em destaque</span>
       <h2>{{ person.name }}</h2>

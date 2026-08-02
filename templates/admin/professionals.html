@@ -17,7 +17,11 @@
   <div class="professional-admin-grid">
     {% for professional in professionals %}
     <article class="professional-admin-card">
+      {% if professional.image_data %}
+      <img class="professional-admin-photo" src="{{ url_for('professional_photo', professional_id=professional.id) }}" alt="Foto de {{ professional.name }}">
+      {% else %}
       <div class="professional-admin-avatar">{{ professional.name[0] }}</div>
+      {% endif %}
       <div>
         <span class="tag">{{ professional.category }}</span>
         <h2>{{ professional.name }}</h2>

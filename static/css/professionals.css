@@ -21,6 +21,52 @@
   font-size: 1.8rem;
 }
 
+.professional-grid .profile-photo {
+  width: 68px;
+  height: 68px;
+  border: 2px solid #e6f6fd;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.professional-admin-photo {
+  width: 70px;
+  height: 70px;
+  border: 2px solid #e6f6fd;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.current-professional-photo {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.current-professional-photo img {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.current-professional-photo .check {
+  margin: 0;
+}
+
+.journalist-photo {
+  width: 280px;
+  height: 280px;
+  object-fit: cover;
+  object-position: center;
+}
+
 .profile-content {
   min-width: 0;
 }
@@ -87,5 +133,15 @@
     width: 58px;
     height: 58px;
     font-size: 1.5rem;
+  }
+
+  .professional-grid .profile-photo {
+    width: 58px;
+    height: 58px;
+  }
+
+  .professional-admin-photo {
+    width: 56px;
+    height: 56px;
   }
 }

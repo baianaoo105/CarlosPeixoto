@@ -1,10 +1,12 @@
 {% extends 'base.html' %}
 {% block title %}{{ 'Editar profissional' if professional else 'Novo profissional' }} — Painel editorial{% endblock %}
+
 {% block content %}
 <section class="form-page container">
-  <form method="post" class="panel">
+  <form method="post" enctype="multipart/form-data" class="panel">
     <p class="eyebrow">Painel de profissionais</p>
     <h1>{{ 'Editar apresentação profissional' if professional else 'Cadastrar novo profissional' }}</h1>
+
     <div class="field-grid">
       <label class="wide">Editoria
         {% set selected_category = request.form.get('category', professional.category if professional else '') %}
@@ -15,12 +17,29 @@
           {% endfor %}
         </select>
       </label>
+
       <label>Nome
         <input name="name" maxlength="120" value="{{ request.form.get('name', professional.name if professional else '') }}" required>
       </label>
       <label>Idade
         <input type="number" name="age" min="18" max="120" value="{{ request.form.get('age', professional.age if professional else '') }}" required>
       </label>
+
+      <label class="wide">Foto do profissional
+        <input type="file" name="photo" accept="image/png,image/jpeg,image/webp,image/gif">
+        <span class="hint">PNG, JPG, WEBP ou GIF; até 8 MB. A imagem será cortada em formato circular.</span>
+      </label>
+
+      {% if professional and professional.image_data %}
+      <div class="wide current-professional-photo">
+        <img src="{{ url_for('professional_photo', professional_id=professional.id) }}" alt="Foto atual de {{ professional.name }}">
+        <label class="check">
+          <input type="checkbox" name="remove_photo">
+          Remover a foto atual
+        </label>
+      </div>
+      {% endif %}
+
       <label class="wide">Função exercida
         <input name="role" maxlength="150" value="{{ request.form.get('role', professional.role if professional else '') }}" required>
       </label>
@@ -34,6 +53,7 @@
         <textarea name="sections" rows="9" required>{% if request.form.get('sections') is not none %}{{ request.form.get('sections') }}{% elif professional %}{{ professional.sections.split('|')|join('\n') }}{% endif %}</textarea>
       </label>
     </div>
+
     <div class="form-actions">
       <button class="button" type="submit">{{ 'Salvar alterações' if professional else 'Cadastrar profissional' }}</button>
       <a class="button ghost" href="{{ url_for('admin_professionals') }}">Cancelar</a>

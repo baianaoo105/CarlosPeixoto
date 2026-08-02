@@ -87,4 +87,4 @@ As conversas recebidas aparecem no botão **Mensagens** do painel. Cada visitant
 
 ## Observação sobre imagens
 
-As fotos são salvas no Postgres para garantir persistência na Vercel. O limite por imagem é 8 MB, mas imagens menores economizam o espaço do plano gratuito. Prefira JPG ou WEBP comprimido.
+As fotos das notícias e dos profissionais são salvas no Postgres para garantir persistência na Vercel. O limite por imagem é 8 MB, mas imagens menores economizam o espaço do plano gratuito. Prefira JPG ou WEBP comprimido.

@@ -94,6 +94,8 @@ class Professional(db.Model):
     address = db.Column(db.String(250))
     hours = db.Column(db.String(250))
     sections = db.Column(db.Text, nullable=False)
+    image_mimetype = db.Column(db.String(80))
+    image_data = db.Column(db.LargeBinary)
 
 
 class Conversation(db.Model):
@@ -177,6 +179,33 @@ def migrate_legacy_sqlite():
                 extension = path.suffix.lower().lstrip(".")
                 article.image_mimetype = "image/jpeg" if extension in {"jpg", "jpeg"} else f"image/{extension}"
         db.session.commit()
+
+
+def migrate_professional_images():
+    """Adiciona os campos de foto nos bancos criados por versões anteriores."""
+    inspector = inspect(db.engine)
+    if "professionals" not in inspector.get_table_names():
+        return
+
+    columns = {column["name"] for column in inspector.get_columns("professionals")}
+    binary_type = "BYTEA" if db.engine.dialect.name == "postgresql" else "BLOB"
+    additions = {
+        "image_mimetype": "VARCHAR(80)",
+        "image_data": binary_type,
+    }
+
+    with db.engine.begin() as connection:
+        for name, definition in additions.items():
+            if name in columns:
+                continue
+            if db.engine.dialect.name == "postgresql":
+                connection.execute(
+                    text(f"ALTER TABLE professionals ADD COLUMN IF NOT EXISTS {name} {definition}")
+                )
+            else:
+                connection.execute(
+                    text(f"ALTER TABLE professionals ADD COLUMN {name} {definition}")
+                )
 
 
 def save_image(file):
@@ -394,12 +423,27 @@ def professional_form_values():
     }
 
 
+def professional_photo_values():
+    photo = request.files.get("photo")
+    if not photo or not photo.filename:
+        return None
+    saved = save_image(photo)
+    return {
+        "image_mimetype": saved["image_mimetype"],
+        "image_data": saved["image_data"],
+    }
+
+
 @app.route("/admin/profissional/novo", methods=["GET", "POST"])
 @admin_required
 def admin_professional_create():
     if request.method == "POST":
         try:
             professional = Professional(**professional_form_values())
+            photo_values = professional_photo_values()
+            if photo_values:
+                for key, value in photo_values.items():
+                    setattr(professional, key, value)
             db.session.add(professional)
             db.session.commit()
             flash("Novo profissional cadastrado.", "success")
@@ -417,6 +461,13 @@ def admin_professional_edit(professional_id):
         try:
             for key, value in professional_form_values().items():
                 setattr(professional, key, value)
+            photo_values = professional_photo_values()
+            if photo_values:
+                for key, value in photo_values.items():
+                    setattr(professional, key, value)
+            elif request.form.get("remove_photo"):
+                professional.image_mimetype = None
+                professional.image_data = None
             db.session.commit()
             flash(f"Perfil de {professional.category} atualizado.", "success")
             return redirect(url_for("admin_professionals"))
@@ -530,6 +581,17 @@ def uploaded_file(news_id):
     return Response(article.image_data, mimetype=article.image_mimetype or "application/octet-stream")
 
 
+@app.route("/uploads/profissional/<int:professional_id>")
+def professional_photo(professional_id):
+    professional = db.get_or_404(Professional, professional_id)
+    if not professional.image_data:
+        abort(404)
+    return Response(
+        professional.image_data,
+        mimetype=professional.image_mimetype or "application/octet-stream",
+    )
+
+
 @app.errorhandler(404)
 def not_found(_error):
     return render_template("error.html", code=404, message="A página que você procura não foi encontrada."), 404
@@ -550,6 +612,7 @@ def server_error(error):
 with app.app_context():
     db.create_all()
     migrate_legacy_sqlite()
+    migrate_professional_images()
     seed_database()
 
 
