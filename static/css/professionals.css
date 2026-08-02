@@ -1,0 +1,91 @@
+.professional-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px;
+  align-items: stretch;
+}
+
+.professional-grid .profile {
+  display: grid;
+  grid-template-columns: 68px minmax(0, 1fr);
+  align-content: start;
+  gap: 16px;
+  height: 100%;
+  padding: 22px;
+  background: #fff;
+}
+
+.professional-grid .avatar {
+  width: 68px;
+  height: 68px;
+  font-size: 1.8rem;
+}
+
+.profile-content {
+  min-width: 0;
+}
+
+.professional-grid .profile h2 {
+  margin: 7px 0 2px;
+  font-size: 1.45rem;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.professional-grid .profile .lead {
+  margin: 0 0 12px;
+  font-size: .96rem;
+}
+
+.profile-details {
+  font-size: .88rem;
+  line-height: 1.45;
+}
+
+.profile-details p {
+  margin: 6px 0;
+}
+
+.professional-grid .profile h3 {
+  margin: 16px 0 8px;
+  font-size: 1rem;
+}
+
+.professional-grid .service-list {
+  grid-template-columns: 1fr;
+  gap: 7px;
+}
+
+.professional-grid .service-list div {
+  padding: 8px 10px;
+  font-size: .86rem;
+  line-height: 1.35;
+}
+
+.professional-grid .service-list span {
+  margin-right: 6px;
+}
+
+@media (max-width: 1050px) {
+  .professional-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  .professional-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .professional-grid .profile {
+    grid-template-columns: 58px minmax(0, 1fr);
+    gap: 13px;
+    padding: 18px;
+  }
+
+  .professional-grid .avatar {
+    width: 58px;
+    height: 58px;
+    font-size: 1.5rem;
+  }
+}

@@ -1,5 +1,60 @@
-{% extends 'base.html' %}{% block title %}{{ category }} — Jornal Carlos Peixoto{% endblock %}{% block content %}
-<section class="page-head"><div class="container"><p class="eyebrow">Editoria</p><h1>{{ category }}</h1><p>Informação de interesse público, serviços e conteúdos da área.</p></div></section>
-<section class="section container">{% for person in professionals %}<article class="profile"><div class="avatar">{{ person.name[0] }}</div><div><span class="tag">Profissional em destaque</span><h2>{{ person.name }}</h2><p class="lead">{{ person.age }} anos • {{ person.role }}</p>{% if person.address %}<p><strong>Endereço:</strong> {{ person.address }}</p>{% endif %}<p><strong>Horário de atendimento:</strong> {{ person.hours }}</p><h3>Informações e serviços</h3><div class="service-list">{% for section in person.sections.split('|') %}<div><span>✓</span>{{ section }}</div>{% endfor %}</div></div></article>{% else %}<p>Nenhum profissional cadastrado.</p>{% endfor %}</section>
-<section class="section subtle"><div class="container"><div class="section-title"><h2>Notícias de {{ category }}</h2></div><div class="news-grid">{% for item in news %}<article class="news-card"><div class="card-body"><span class="tag">{{ item.category }}</span><h3><a href="{{ url_for('news_detail', news_id=item.id) }}">{{ item.title }}</a></h3><p>{{ item.summary }}</p></div></article>{% else %}<p>Ainda não há notícias nesta editoria.</p>{% endfor %}</div></div></section>{% endblock %}
+{% extends 'base.html' %}
+{% block title %}{{ category }} — Jornal Carlos Peixoto{% endblock %}
 
+{% block content %}
+<section class="page-head">
+  <div class="container">
+    <p class="eyebrow">Editoria</p>
+    <h1>{{ category }}</h1>
+    <p>Informação de interesse público, serviços e conteúdos da área.</p>
+  </div>
+</section>
+
+<section class="section container professional-grid">
+  {% for person in professionals %}
+  <article class="profile">
+    <div class="avatar" aria-hidden="true">{{ person.name[0] }}</div>
+    <div class="profile-content">
+      <span class="tag">Profissional em destaque</span>
+      <h2>{{ person.name }}</h2>
+      <p class="lead">{{ person.age }} anos • {{ person.role }}</p>
+
+      <div class="profile-details">
+        {% if person.address %}
+        <p><strong>Endereço:</strong> {{ person.address }}</p>
+        {% endif %}
+        <p><strong>Horário de atendimento:</strong> {{ person.hours }}</p>
+      </div>
+
+      <h3>Informações e serviços</h3>
+      <div class="service-list">
+        {% for section in person.sections.split('|') %}
+        <div><span>✓</span>{{ section }}</div>
+        {% endfor %}
+      </div>
+    </div>
+  </article>
+  {% else %}
+  <p>Nenhum profissional cadastrado.</p>
+  {% endfor %}
+</section>
+
+<section class="section subtle">
+  <div class="container">
+    <div class="section-title"><h2>Notícias de {{ category }}</h2></div>
+    <div class="news-grid">
+      {% for item in news %}
+      <article class="news-card">
+        <div class="card-body">
+          <span class="tag">{{ item.category }}</span>
+          <h3><a href="{{ url_for('news_detail', news_id=item.id) }}">{{ item.title }}</a></h3>
+          <p>{{ item.summary }}</p>
+        </div>
+      </article>
+      {% else %}
+      <p>Ainda não há notícias nesta editoria.</p>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}
