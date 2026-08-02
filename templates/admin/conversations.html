@@ -10,14 +10,24 @@
 
   <div class="conversation-list">
     {% for conversation in conversations %}
-    <a class="conversation-card" href="{{ url_for('admin_conversation', conversation_id=conversation.id) }}">
-      <div>
+    <article class="conversation-card">
+      <a class="conversation-card-main" href="{{ url_for('admin_conversation', conversation_id=conversation.id) }}">
         <span class="conversation-person">{{ conversation.visitor_name or 'Visitante sem nome' }}</span>
         <strong>{{ conversation.title or 'Conversa sem título' }}</strong>
-        {% if conversation.messages %}<p>{{ conversation.messages[-1].content }}</p>{% else %}<p>Conversa iniciada, sem mensagens.</p>{% endif %}
+        {% if conversation.messages %}
+        <p>{{ conversation.messages[-1].content }}</p>
+        {% else %}
+        <p>Conversa iniciada, sem mensagens.</p>
+        {% endif %}
+      </a>
+
+      <div class="conversation-card-actions">
+        <time>{{ conversation.updated_at|datetime_br }}</time>
+        <form method="post" action="{{ url_for('admin_conversation_delete', conversation_id=conversation.id) }}" data-confirm data-confirm-message="Tem certeza que deseja excluir esta conversa e todas as mensagens e fotos dela?">
+          <button type="submit">Excluir conversa</button>
+        </form>
       </div>
-      <span>{{ conversation.updated_at|datetime_br }}</span>
-    </a>
+    </article>
     {% else %}
     <p>Nenhuma conversa recebida até o momento.</p>
     {% endfor %}

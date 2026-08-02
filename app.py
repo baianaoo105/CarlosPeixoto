@@ -484,6 +484,16 @@ def admin_conversations():
     return render_template("admin/conversations.html", conversations=conversations)
 
 
+@app.route("/admin/conversa/<conversation_id>/excluir", methods=["POST"])
+@admin_required
+def admin_conversation_delete(conversation_id):
+    conversation = db.get_or_404(Conversation, conversation_id)
+    db.session.delete(conversation)
+    db.session.commit()
+    flash("Conversa excluída.", "success")
+    return redirect(url_for("admin_conversations"))
+
+
 @app.route("/admin/profissionais")
 @admin_required
 def admin_professionals():
