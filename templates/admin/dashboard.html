@@ -1,2 +1,64 @@
-{% extends 'base.html' %}{% block title %}Painel editorial{% endblock %}{% block content %}<section class="section container"><div class="section-title"><div><p class="eyebrow">Administração</p><h1>Notícias publicadas</h1></div><div><a class="button" href="{{ url_for('admin_news_create') }}">+ Nova notícia</a> <a class="button ghost" href="{{ url_for('admin_logout') }}">Sair</a></div></div><div class="table-wrap"><table><thead><tr><th>Título</th><th>Categoria</th><th>Data</th><th>Ações</th></tr></thead><tbody>{% for item in news %}<tr><td><a href="{{ url_for('news_detail', news_id=item.id) }}">{{ item.title }}</a>{% if item.featured %}<small>Destaque</small>{% endif %}</td><td>{{ item.category }}</td><td>{{ item.created_at }}</td><td class="actions"><a href="{{ url_for('admin_news_edit', news_id=item.id) }}">Editar</a><form method="post" action="{{ url_for('admin_news_delete', news_id=item.id) }}" data-confirm><button type="submit">Excluir</button></form></td></tr>{% endfor %}</tbody></table></div></section>{% endblock %}
+{% extends 'base.html' %}
+{% block title %}Painel editorial{% endblock %}
+{% block content %}
+<section class="section container admin-dashboard">
+  <div class="section-title">
+    <div>
+      <p class="eyebrow">Administração</p>
+      <h1>Notícias publicadas</h1>
+      <p class="dashboard-intro">Selecione uma categoria para visualizar e administrar suas notícias.</p>
+    </div>
+    <div>
+      <a class="button" href="{{ url_for('admin_news_create') }}">+ Nova notícia</a>
+      <a class="button ghost" href="{{ url_for('admin_logout') }}">Sair</a>
+    </div>
+  </div>
 
+  <div class="category-admin-list">
+    {% for section in category_sections %}
+    <details class="category-admin-card">
+      <summary>
+        <span class="category-admin-name">{{ section.name }}</span>
+        <span class="category-admin-meta">
+          <span>{{ section.news_items|length }} {{ 'notícia' if section.news_items|length == 1 else 'notícias' }}</span>
+          <span>Última atualização: {{ section.last_updated|datetime_br }}</span>
+        </span>
+        <span class="category-admin-arrow" aria-hidden="true">⌄</span>
+      </summary>
+
+      {% if section.news_items %}
+      <div class="table-wrap category-admin-table">
+        <table>
+          <thead>
+            <tr><th>Título</th><th>Data da atualização</th><th>Ações</th></tr>
+          </thead>
+          <tbody>
+            {% for item in section.news_items %}
+            <tr>
+              <td>
+                <a href="{{ url_for('news_detail', news_id=item.id) }}">{{ item.title }}</a>
+                {% if item.featured %}<small>Destaque principal</small>{% endif %}
+              </td>
+              <td>{{ item.updated_at|datetime_br }}</td>
+              <td class="actions">
+                <a href="{{ url_for('admin_news_edit', news_id=item.id) }}">Editar</a>
+                <form method="post" action="{{ url_for('admin_news_delete', news_id=item.id) }}" data-confirm>
+                  <button type="submit">Excluir</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="category-admin-empty">
+        <p>Nenhuma notícia publicada nesta categoria.</p>
+        <a href="{{ url_for('admin_news_create') }}">Cadastrar a primeira notícia</a>
+      </div>
+      {% endif %}
+    </details>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

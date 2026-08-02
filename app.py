@@ -75,6 +75,17 @@ def globals_for_templates():
     return {"categories": CATEGORIES, "current_year": datetime.now().year}
 
 
+@app.template_filter("datetime_br")
+def datetime_br(value):
+    """Exibe as datas do SQLite no formato brasileiro."""
+    if not value:
+        return "Sem atualização"
+    try:
+        return datetime.fromisoformat(str(value)).strftime("%d/%m/%Y às %H:%M")
+    except (TypeError, ValueError):
+        return str(value)
+
+
 @app.route("/")
 def index():
     db = get_db()
@@ -119,7 +130,11 @@ def news_detail(news_id):
 @app.route("/admin/entrar", methods=["GET", "POST"])
 def admin_login():
     if request.method == "POST":
-        expected = os.environ.get("ADMIN_PASSWORD", "admin123")
+        expected = os.environ.get("ADMIN_PASSWORD")
+        if not expected:
+            app.logger.error("ADMIN_PASSWORD não foi configurada.")
+            flash("O acesso administrativo ainda não foi configurado.", "error")
+            return render_template("admin/login.html"), 503
         if request.form.get("password") == expected:
             session["admin"] = True
             flash("Acesso liberado.", "success")
@@ -137,8 +152,21 @@ def admin_logout():
 @app.route("/admin")
 @admin_required
 def admin_dashboard():
-    news = get_db().execute("SELECT * FROM news ORDER BY created_at DESC").fetchall()
-    return render_template("admin/dashboard.html", news=news)
+    db = get_db()
+    category_sections = []
+    for category_name in CATEGORIES:
+        items = db.execute(
+            "SELECT * FROM news WHERE category = ? ORDER BY updated_at DESC, created_at DESC",
+            (category_name,),
+        ).fetchall()
+        category_sections.append(
+            {
+                "name": category_name,
+                "news_items": items,
+                "last_updated": items[0]["updated_at"] if items else None,
+            }
+        )
+    return render_template("admin/dashboard.html", category_sections=category_sections)
 
 
 def news_form_values():
@@ -227,4 +255,3 @@ with app.app_context():
 
 if __name__ == "__main__":
     app.run(debug=True)
-

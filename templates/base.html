@@ -6,6 +6,7 @@
   <title>{% block title %}Jornal Carlos Peixoto{% endblock %}</title>
   <link rel="icon" href="{{ url_for('static', filename='img/icone.png') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
 </head>
 <body>
   <a class="skip" href="#conteudo">Pular para o conteúdo</a>
@@ -19,4 +20,3 @@
   <footer><div class="container footer-grid"><div><strong>Jornal Carlos Peixoto</strong><p>Jornalismo local, informação de serviço e compromisso com a comunidade.</p></div><div><strong>Editorias</strong>{% for item in categories %}<a href="{{ url_for('category', category=item) }}">{{ item }}</a>{% endfor %}</div></div><div class="container copyright">© {{ current_year }} Jornal Carlos Peixoto. Todos os direitos reservados.</div></footer>
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body></html>
-
