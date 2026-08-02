@@ -1,79 +1,89 @@
 # Jornal Carlos Peixoto
 
-Portal de notícias responsivo em Flask, com identidade própria, SQLite, painel editorial, upload de fotos e comentários.
+Portal de notícias em Flask preparado para publicação na Vercel.
 
 ## Recursos
 
-- Página inicial com destaque, notícias do dia e área principal do jornalista.
-- Editorias Polícia, Médicos, Bombeiros, Juiz, Advogado e Jornalista.
-- Perfis profissionais e todas as seções de serviço solicitadas.
-- Painel protegido para cadastrar, editar e excluir notícias.
-- Upload de PNG, JPG, WEBP e GIF (máximo de 8 MB).
-- Comentários persistentes em cada notícia.
-- Banco SQLite criado automaticamente, já com dados de exemplo.
-- Layout responsivo, validações básicas e páginas de erro.
+- Notícias e profissionais organizados por editoria.
+- Painel administrativo protegido por variável de ambiente.
+- Cadastro, edição e exclusão de notícias.
+- Comentários públicos persistentes.
+- Fotos armazenadas no banco para não desaparecerem na Vercel.
+- Chat particular entre cada visitante e o administrador.
+- Link do servidor do Discord no rodapé.
+- Banco local SQLite para desenvolvimento e Postgres/Neon na Vercel.
 
-## Como executar no Windows
+## Executar no Windows
 
-1. Instale o Python 3.10 ou mais recente em https://www.python.org/downloads/ e marque **Add Python to PATH** durante a instalação.
-2. Extraia o ZIP e abra o PowerShell dentro da pasta `Jornal-Carlos-Peixoto`.
-3. Crie o ambiente virtual:
+Dentro da pasta do projeto, execute:
 
 ```powershell
-python -m venv .venv
+py -m venv .venv
 ```
 
-4. Ative-o:
+Não é obrigatório ativar o ambiente. Instale diretamente:
 
 ```powershell
-.\.venv\Scripts\Activate.ps1
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-Se o PowerShell bloquear a ativação, execute uma vez na mesma janela:
+Defina as configurações somente nesta janela:
 
 ```powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+$env:ADMIN_PASSWORD="sua-senha-administrativa"
+$env:SECRET_KEY="uma-chave-secreta-longa-e-diferente-da-senha"
 ```
 
-5. Instale as dependências:
+Inicie:
 
 ```powershell
-python -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe app.py
 ```
 
-6. Defina a senha administrativa e uma chave secreta (obrigatório):
+Abra `http://127.0.0.1:5000`.
+
+## Configuração obrigatória na Vercel
+
+O SQLite funciona no computador, mas não aceita gravações persistentes na Vercel. Para comentários, notícias, fotos e chat funcionarem online, conecte um banco Postgres.
+
+### 1. Criar o banco gratuito
+
+1. Abra seu projeto na Vercel.
+2. Entre em **Storage** ou **Marketplace**.
+3. Procure por **Neon**.
+4. Clique em **Install**.
+5. Escolha o plano **Free ($0)**.
+6. Crie o banco e conecte-o ao projeto `carlos-peixoto`.
+7. Confirme que a Vercel adicionou a variável `DATABASE_URL` em **Settings → Environment Variables**.
+
+O aplicativo cria automaticamente as tabelas e os dados de exemplo no primeiro acesso.
+
+### 2. Variáveis protegidas
+
+Em **Settings → Environment Variables**, mantenha estas três variáveis em Production e Preview:
+
+- `ADMIN_PASSWORD`: senha escolhida para o painel.
+- `SECRET_KEY`: chave longa e aleatória, diferente da senha.
+- `DATABASE_URL`: criada automaticamente pela integração Neon.
+
+Nunca escreva os valores dessas variáveis nos arquivos ou no GitHub.
+
+### 3. Publicar novamente
+
+Depois de conectar o banco e enviar estes arquivos atualizados, faça um **Redeploy** ou execute:
 
 ```powershell
-$env:ADMIN_PASSWORD="a-senha-administrativa-escolhida"
-$env:SECRET_KEY="uma-chave-secreta-longa-e-aleatoria"
+vercel --prod
 ```
 
-7. Inicie o site:
+## Acessos
 
-```powershell
-python app.py
-```
+- Site: `https://carlos-peixoto.vercel.app`
+- Painel: `https://carlos-peixoto.vercel.app/admin`
+- Chat particular: `https://carlos-peixoto.vercel.app/contato`
 
-8. Abra `http://127.0.0.1:5000` no navegador. O painel fica em `http://127.0.0.1:5000/admin`.
+As conversas recebidas aparecem no botão **Mensagens** do painel. Cada visitante identifica sua conversa por um cookie assinado; se apagar os dados do navegador, ele perde o acesso ao histórico daquela conversa.
 
-Por segurança, o painel não possui senha padrão e não funciona enquanto `ADMIN_PASSWORD` não estiver configurada. A senha nunca deve ser escrita nos arquivos HTML, no código ou em um repositório público.
+## Observação sobre imagens
 
-### Configuração na Vercel
-
-No projeto da Vercel, abra **Settings → Environment Variables** e adicione:
-
-- `ADMIN_PASSWORD`: a senha administrativa escolhida.
-- `SECRET_KEY`: uma sequência longa, aleatória e diferente da senha.
-
-Marque os ambientes **Production**, **Preview** e **Development**, salve e faça um novo **Redeploy**. Não escreva os valores dessas variáveis no código.
-
-## Estrutura e dados
-
-- `app.py`: aplicação e rotas.
-- `templates/`: páginas HTML.
-- `static/`: CSS, JavaScript e ícone.
-- `schema.sql` e `seed.sql`: estrutura e conteúdo inicial.
-- `uploads/`: fotos enviadas pelo painel.
-- `jornal.db`: banco criado na primeira execução.
-
-Para restaurar os dados de exemplo, pare o servidor, exclua apenas `jornal.db` e inicie novamente. Para publicar na internet, use um servidor WSGI, HTTPS e uma senha forte.
+As fotos são salvas no Postgres para garantir persistência na Vercel. O limite por imagem é 8 MB, mas imagens menores economizam o espaço do plano gratuito. Prefira JPG ou WEBP comprimido.

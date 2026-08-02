@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block title %}Conversa com {{ conversation.visitor_name or 'visitante' }}{% endblock %}
+{% block content %}
+<section class="chat-page container">
+  <a class="back" href="{{ url_for('admin_conversations') }}">← Todas as conversas</a>
+  <div class="chat-heading">
+    <p class="eyebrow">Conversa particular</p>
+    <h1>{{ conversation.visitor_name or 'Visitante sem nome' }}</h1>
+  </div>
+  <div id="mensagens" class="chat-thread">
+    {% for message in conversation.messages %}
+    <article class="chat-message {{ 'from-admin' if message.sender == 'admin' else 'from-visitor' }}">
+      <strong>{{ 'Administrador' if message.sender == 'admin' else (conversation.visitor_name or 'Visitante') }}</strong>
+      <p>{{ message.content }}</p>
+      <time>{{ message.created_at|datetime_br }}</time>
+    </article>
+    {% endfor %}
+  </div>
+  <form method="post" class="chat-form">
+    <label>Resposta do administrador
+      <textarea name="content" maxlength="2000" rows="4" required autofocus></textarea>
+    </label>
+    <button class="button" type="submit">Responder em particular</button>
+  </form>
+</section>
+{% endblock %}

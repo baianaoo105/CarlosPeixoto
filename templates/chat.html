@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block title %}Falar com o ADM — Jornal Carlos Peixoto{% endblock %}
+{% block content %}
+<section class="chat-page container">
+  <div class="chat-heading">
+    <p class="eyebrow">Contato particular</p>
+    <h1>Converse com o administrador</h1>
+    <p>Somente você, neste navegador, e o administrador podem ver esta conversa.</p>
+  </div>
+
+  <div id="mensagens" class="chat-thread" aria-live="polite">
+    {% for message in conversation.messages %}
+    <article class="chat-message {{ 'from-admin' if message.sender == 'admin' else 'from-visitor' }}">
+      <strong>{{ 'Administrador' if message.sender == 'admin' else (conversation.visitor_name or 'Você') }}</strong>
+      <p>{{ message.content }}</p>
+      <time>{{ message.created_at|datetime_br }}</time>
+    </article>
+    {% else %}
+    <div class="chat-empty">
+      <strong>Como podemos ajudar?</strong>
+      <p>Envie sua primeira mensagem. Ela não será exibida publicamente.</p>
+    </div>
+    {% endfor %}
+  </div>
+
+  <form method="post" class="chat-form">
+    <label>Seu nome
+      <input name="name" maxlength="80" value="{{ conversation.visitor_name or '' }}" required>
+    </label>
+    <label>Mensagem
+      <textarea name="content" maxlength="2000" rows="4" required placeholder="Escreva sua mensagem para o ADM"></textarea>
+    </label>
+    <button class="button" type="submit">Enviar em particular</button>
+  </form>
+  <p class="chat-privacy">Não limpe os dados deste navegador se quiser continuar vendo as respostas desta conversa.</p>
+</section>
+{% endblock %}
