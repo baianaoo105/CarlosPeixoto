@@ -6,6 +6,6 @@ button?.addEventListener('click', () => {
   menu.classList.toggle('open');
 });
 document.querySelectorAll('[data-confirm]').forEach((form) => form.addEventListener('submit', (event) => {
-  if (!window.confirm('Tem certeza que deseja excluir esta notícia? Os comentários também serão excluídos.')) event.preventDefault();
+  const message = form.dataset.confirmMessage || 'Tem certeza que deseja excluir esta notícia? Os comentários também serão excluídos.';
+  if (!window.confirm(message)) event.preventDefault();
 }));
-

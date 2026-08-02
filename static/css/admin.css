@@ -136,6 +136,22 @@
   color: var(--muted);
 }
 
+.professional-admin-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.professional-admin-actions form {
+  margin: 0;
+}
+
+.button.danger {
+  border: 1px solid var(--red);
+  background: transparent;
+  color: var(--red);
+}
+
 @media (max-width: 760px) {
   .professional-admin-grid {
     grid-template-columns: 1fr;
