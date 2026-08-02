@@ -4,6 +4,7 @@ Portal de notícias em Flask preparado para publicação na Vercel.
 
 ## Recursos
 
+- Fundo responsivo em azul-claro suave, combinando com a identidade do jornal.
 - Foto opcional do profissional que forneceu a informação em cada notícia.
 - Prévia com imagem, título e descrição ao compartilhar links do site ou das notícias.
 - Contato particular com título, descrição, mensagem e até 3 fotos privadas.

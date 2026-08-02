@@ -20,6 +20,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/chat_details.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/professionals.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/news.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
 </head>
 <body{% if session.get('admin') and request.path.startswith('/admin') and request.endpoint != 'admin_login' %} data-admin-session-token="{{ session.get('admin_token', '') }}" data-admin-session-fresh="{{ '1' if request.args.get('login') == '1' else '0' }}" data-admin-logout-url="{{ url_for('admin_logout', relogin=1) }}"{% endif %}>
   <a class="skip" href="#conteudo">Pular para o conteúdo</a>

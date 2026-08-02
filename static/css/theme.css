@@ -1,0 +1,49 @@
+:root {
+  --site-background: #edf6fb;
+  --site-background-light: #f8fcfe;
+}
+
+body {
+  background: var(--site-background);
+}
+
+.site-header {
+  position: relative;
+  z-index: 2;
+  background: rgba(255, 255, 255, .96);
+  box-shadow: 0 2px 14px rgba(17, 74, 102, .07);
+}
+
+main {
+  min-height: 65vh;
+  background:
+    radial-gradient(circle at 95% 5%, rgba(45, 169, 232, .14), transparent 32rem),
+    radial-gradient(circle at 5% 70%, rgba(8, 118, 174, .07), transparent 28rem),
+    linear-gradient(180deg, var(--site-background-light) 0%, var(--site-background) 58%, #f7fbfd 100%);
+}
+
+.news-card,
+.profile,
+.professional-admin-card,
+.category-admin-card,
+.conversation-card,
+.table-wrap {
+  box-shadow: 0 5px 18px rgba(20, 72, 99, .05);
+}
+
+.page-head {
+  background: linear-gradient(110deg, #fffaf0, #dff3fd);
+}
+
+.journalist,
+.subtle {
+  background: rgba(251, 247, 237, .88);
+}
+
+@media (max-width: 760px) {
+  main {
+    background:
+      radial-gradient(circle at 100% 8%, rgba(45, 169, 232, .12), transparent 20rem),
+      linear-gradient(180deg, #f8fcfe, #edf6fb);
+  }
+}
