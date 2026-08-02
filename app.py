@@ -106,6 +106,8 @@ class Conversation(db.Model):
 
     id = db.Column(db.String(36), primary_key=True)
     visitor_name = db.Column(db.String(80))
+    title = db.Column(db.String(140))
+    description = db.Column(db.String(600))
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
     updated_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now, index=True)
     messages = db.relationship(
@@ -131,6 +133,28 @@ class ChatMessage(db.Model):
     read_by_admin = db.Column(db.Boolean, nullable=False, default=False)
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
     conversation = db.relationship("Conversation", back_populates="messages")
+    attachments = db.relationship(
+        "ChatAttachment",
+        back_populates="message",
+        cascade="all, delete-orphan",
+        order_by="ChatAttachment.id",
+    )
+
+
+class ChatAttachment(db.Model):
+    __tablename__ = "chat_attachments"
+
+    id = db.Column(db.Integer, primary_key=True)
+    message_id = db.Column(
+        db.Integer,
+        db.ForeignKey("chat_messages.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    filename = db.Column(db.String(255), nullable=False)
+    image_mimetype = db.Column(db.String(80), nullable=False)
+    image_data = db.Column(db.LargeBinary, nullable=False)
+    message = db.relationship("ChatMessage", back_populates="attachments")
 
 
 def seed_database():
@@ -229,6 +253,31 @@ def migrate_news_source_name():
         connection.execute(text(statement))
 
 
+def migrate_conversation_details():
+    """Adiciona título e descrição às conversas criadas por versões anteriores."""
+    inspector = inspect(db.engine)
+    if "conversations" not in inspector.get_table_names():
+        return
+
+    columns = {column["name"] for column in inspector.get_columns("conversations")}
+    additions = {
+        "title": "VARCHAR(140)",
+        "description": "VARCHAR(600)",
+    }
+    with db.engine.begin() as connection:
+        for name, definition in additions.items():
+            if name in columns:
+                continue
+            if db.engine.dialect.name == "postgresql":
+                connection.execute(
+                    text(f"ALTER TABLE conversations ADD COLUMN IF NOT EXISTS {name} {definition}")
+                )
+            else:
+                connection.execute(
+                    text(f"ALTER TABLE conversations ADD COLUMN {name} {definition}")
+                )
+
+
 def save_image(file):
     if not file or not file.filename:
         return None
@@ -244,6 +293,26 @@ def save_image(file):
         "image_mimetype": file.mimetype or f"image/{extension}",
         "image_data": data,
     }
+
+
+def save_chat_attachments(files):
+    photos = [photo for photo in files if photo and photo.filename]
+    if len(photos) > 3:
+        raise ValueError("Envie no máximo 3 fotos por mensagem.")
+
+    attachments = []
+    total_size = 0
+    for photo in photos:
+        saved = save_image(photo)
+        total_size += len(saved["image_data"])
+        if total_size > MAX_IMAGE_SIZE:
+            raise ValueError("As fotos juntas ultrapassam o limite de 8 MB.")
+        attachments.append({
+            "filename": saved["image"],
+            "image_mimetype": saved["image_mimetype"],
+            "image_data": saved["image_data"],
+        })
+    return attachments
 
 
 def admin_required(view):
@@ -338,15 +407,27 @@ def visitor_chat():
     conversation = get_visitor_conversation()
     if request.method == "POST":
         name = request.form.get("name", "").strip()
+        title = request.form.get("title", "").strip()
+        description = request.form.get("description", "").strip()
         content = request.form.get("content", "").strip()
-        if not name or not content:
-            flash("Informe seu nome e escreva uma mensagem.", "error")
-        elif len(name) > 80 or len(content) > 2000:
-            flash("Nome ou mensagem ultrapassa o limite permitido.", "error")
+        if not name or not title or not description or not content:
+            flash("Preencha seu nome, título, descrição e mensagem.", "error")
+        elif len(name) > 80 or len(title) > 140 or len(description) > 600 or len(content) > 2000:
+            flash("Um dos campos ultrapassa o limite permitido.", "error")
         else:
+            try:
+                attachment_values = save_chat_attachments(request.files.getlist("photos"))
+            except ValueError as error:
+                flash(str(error), "error")
+                return render_template("chat.html", conversation=conversation)
             conversation.visitor_name = name
+            conversation.title = title
+            conversation.description = description
             conversation.updated_at = utc_now()
-            db.session.add(ChatMessage(conversation_id=conversation.id, sender="visitor", content=content))
+            message = ChatMessage(conversation_id=conversation.id, sender="visitor", content=content)
+            for values in attachment_values:
+                message.attachments.append(ChatAttachment(**values))
+            db.session.add(message)
             db.session.commit()
             flash("Mensagem enviada somente ao administrador.", "success")
             return redirect(url_for("visitor_chat") + "#mensagens")
@@ -571,6 +652,24 @@ def admin_conversation(conversation_id):
     return render_template("admin/conversation.html", conversation=conversation)
 
 
+@app.route(
+    "/admin/conversa/<conversation_id>/mensagem/<int:message_id>/excluir",
+    methods=["POST"],
+)
+@admin_required
+def admin_chat_message_delete(conversation_id, message_id):
+    conversation = db.get_or_404(Conversation, conversation_id)
+    message = db.get_or_404(ChatMessage, message_id)
+    if message.conversation_id != conversation.id:
+        abort(404)
+
+    db.session.delete(message)
+    conversation.updated_at = utc_now()
+    db.session.commit()
+    flash("Mensagem excluída.", "success")
+    return redirect(url_for("admin_conversation", conversation_id=conversation.id))
+
+
 def news_form_values_legacy():
     title = request.form.get("title", "").strip()
     summary = request.form.get("summary", "").strip()
@@ -680,6 +779,19 @@ def professional_office_photo(professional_id):
     )
 
 
+@app.route("/contato/foto/<int:attachment_id>")
+def chat_attachment_file(attachment_id):
+    attachment = db.get_or_404(ChatAttachment, attachment_id)
+    conversation_id = attachment.message.conversation_id
+    authorized = session.get("admin") or session.get("chat_id") == conversation_id
+    if not authorized:
+        abort(404)
+
+    response = Response(attachment.image_data, mimetype=attachment.image_mimetype)
+    response.headers["Cache-Control"] = "private, no-store"
+    return response
+
+
 @app.errorhandler(404)
 def not_found(_error):
     return render_template("error.html", code=404, message="A página que você procura não foi encontrada."), 404
@@ -702,6 +814,7 @@ with app.app_context():
     migrate_legacy_sqlite()
     migrate_news_source_name()
     migrate_professional_images()
+    migrate_conversation_details()
     seed_database()
 
 

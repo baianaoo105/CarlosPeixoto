@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% block title %}Conversa com {{ conversation.visitor_name or 'visitante' }}{% endblock %}
+
 {% block content %}
 <section class="chat-page container">
   <a class="back" href="{{ url_for('admin_conversations') }}">← Todas as conversas</a>
@@ -7,15 +8,37 @@
     <p class="eyebrow">Conversa particular</p>
     <h1>{{ conversation.visitor_name or 'Visitante sem nome' }}</h1>
   </div>
+
+  <div class="chat-subject">
+    <span>Título</span>
+    <h2>{{ conversation.title or 'Sem título' }}</h2>
+    <p>{{ conversation.description or 'Nenhuma descrição informada.' }}</p>
+  </div>
+
   <div id="mensagens" class="chat-thread">
     {% for message in conversation.messages %}
     <article class="chat-message {{ 'from-admin' if message.sender == 'admin' else 'from-visitor' }}">
       <strong>{{ 'Administrador' if message.sender == 'admin' else (conversation.visitor_name or 'Visitante') }}</strong>
       <p>{{ message.content }}</p>
-      <time>{{ message.created_at|datetime_br }}</time>
+      {% if message.attachments %}
+      <div class="chat-attachments">
+        {% for photo in message.attachments %}
+        <a href="{{ url_for('chat_attachment_file', attachment_id=photo.id) }}" target="_blank" rel="noopener">
+          <img src="{{ url_for('chat_attachment_file', attachment_id=photo.id) }}" alt="Foto enviada pelo visitante">
+        </a>
+        {% endfor %}
+      </div>
+      {% endif %}
+      <div class="chat-message-admin-actions">
+        <time>{{ message.created_at|datetime_br }}</time>
+        <form method="post" action="{{ url_for('admin_chat_message_delete', conversation_id=conversation.id, message_id=message.id) }}" data-confirm data-confirm-message="Tem certeza que deseja excluir esta mensagem?">
+          <button type="submit">Excluir mensagem</button>
+        </form>
+      </div>
     </article>
     {% endfor %}
   </div>
+
   <form method="post" class="chat-form">
     <label>Resposta do administrador
       <textarea name="content" maxlength="2000" rows="4" required autofocus></textarea>

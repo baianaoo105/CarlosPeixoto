@@ -4,6 +4,8 @@ Portal de notícias em Flask preparado para publicação na Vercel.
 
 ## Recursos
 
+- Contato particular com título, descrição, mensagem e até 3 fotos privadas.
+- Exclusão individual de mensagens pelo administrador, com confirmação.
 - Foto opcional do escritório ou local de atendimento em cada perfil profissional.
 - O painel exige novo login quando é reaberto em outra aba ou após fechar a aba anterior.
 - Crédito opcional do profissional que forneceu a informação em cada notícia.

@@ -1,16 +1,19 @@
 {% extends 'base.html' %}
 {% block title %}Conversas — Painel editorial{% endblock %}
+
 {% block content %}
 <section class="section container">
   <div class="section-title">
     <div><p class="eyebrow">Área administrativa</p><h1>Conversas particulares</h1></div>
     <a class="button ghost" href="{{ url_for('admin_dashboard') }}">← Voltar ao painel</a>
   </div>
+
   <div class="conversation-list">
     {% for conversation in conversations %}
     <a class="conversation-card" href="{{ url_for('admin_conversation', conversation_id=conversation.id) }}">
       <div>
-        <strong>{{ conversation.visitor_name or 'Visitante sem nome' }}</strong>
+        <span class="conversation-person">{{ conversation.visitor_name or 'Visitante sem nome' }}</span>
+        <strong>{{ conversation.title or 'Conversa sem título' }}</strong>
         {% if conversation.messages %}<p>{{ conversation.messages[-1].content }}</p>{% else %}<p>Conversa iniciada, sem mensagens.</p>{% endif %}
       </div>
       <span>{{ conversation.updated_at|datetime_br }}</span>
