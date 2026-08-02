@@ -1,0 +1,22 @@
+.source-credit {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: 20px;
+  padding: 11px 15px;
+  border-left: 4px solid var(--blue);
+  border-radius: 0 9px 9px 0;
+  background: var(--paper);
+}
+
+.source-credit span {
+  color: var(--muted);
+  font-size: .76rem;
+  font-weight: bold;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.source-credit strong {
+  color: var(--ink);
+}

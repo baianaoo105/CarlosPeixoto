@@ -63,6 +63,7 @@ class News(db.Model):
     summary = db.Column(db.String(350), nullable=False)
     content = db.Column(db.Text, nullable=False)
     category = db.Column(db.String(40), nullable=False, index=True)
+    source_name = db.Column(db.String(120))
     image = db.Column(db.String(255))
     image_mimetype = db.Column(db.String(80))
     image_data = db.Column(db.LargeBinary)
@@ -206,6 +207,22 @@ def migrate_professional_images():
                 connection.execute(
                     text(f"ALTER TABLE professionals ADD COLUMN {name} {definition}")
                 )
+
+
+def migrate_news_source_name():
+    """Adiciona o crédito da fonte às notícias dos bancos já existentes."""
+    inspector = inspect(db.engine)
+    if "news" not in inspector.get_table_names():
+        return
+    columns = {column["name"] for column in inspector.get_columns("news")}
+    if "source_name" in columns:
+        return
+
+    statement = "ALTER TABLE news ADD COLUMN source_name VARCHAR(120)"
+    if db.engine.dialect.name == "postgresql":
+        statement = "ALTER TABLE news ADD COLUMN IF NOT EXISTS source_name VARCHAR(120)"
+    with db.engine.begin() as connection:
+        connection.execute(text(statement))
 
 
 def save_image(file):
@@ -516,7 +533,7 @@ def admin_conversation(conversation_id):
     return render_template("admin/conversation.html", conversation=conversation)
 
 
-def news_form_values():
+def news_form_values_legacy():
     title = request.form.get("title", "").strip()
     summary = request.form.get("summary", "").strip()
     content = request.form.get("content", "").strip()
@@ -526,6 +543,28 @@ def news_form_values():
     if len(title) > 180 or len(summary) > 350:
         raise ValueError("Título ou resumo ultrapassa o limite permitido.")
     return {"title": title, "summary": summary, "content": content, "category": category_name, "featured": bool(request.form.get("featured"))}
+
+
+def news_form_values():
+    title = request.form.get("title", "").strip()
+    summary = request.form.get("summary", "").strip()
+    content = request.form.get("content", "").strip()
+    source_name = request.form.get("source_name", "").strip()
+    category_name = request.form.get("category", "")
+
+    if not title or not summary or not content or category_name not in CATEGORIES:
+        raise ValueError("Preencha título, resumo, texto e escolha uma categoria válida.")
+    if len(title) > 180 or len(summary) > 350 or len(source_name) > 120:
+        raise ValueError("Título, resumo ou nome do profissional ultrapassa o limite permitido.")
+
+    return {
+        "title": title,
+        "summary": summary,
+        "content": content,
+        "category": category_name,
+        "source_name": source_name or None,
+        "featured": bool(request.form.get("featured")),
+    }
 
 
 @app.route("/admin/noticia/nova", methods=["GET", "POST"])
@@ -612,6 +651,7 @@ def server_error(error):
 with app.app_context():
     db.create_all()
     migrate_legacy_sqlite()
+    migrate_news_source_name()
     migrate_professional_images()
     seed_database()
 

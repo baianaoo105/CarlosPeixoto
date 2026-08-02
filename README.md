@@ -4,6 +4,7 @@ Portal de notícias em Flask preparado para publicação na Vercel.
 
 ## Recursos
 
+- Crédito opcional do profissional que forneceu a informação em cada notícia.
 - Notícias e profissionais organizados por editoria.
 - Painel administrativo protegido por variável de ambiente.
 - Cadastro, edição e exclusão de profissionais, horários e serviços pelo painel.
