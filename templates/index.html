@@ -49,6 +49,9 @@
       <p class="eyebrow">Área do jornalista</p>
       <h2>{{ journalist.name }}</h2>
       <p class="lead">{{ journalist.role }} — {{ journalist.hours }}</p>
+      {% if journalist.featured and journalist.featured_reason %}
+      <p class="journalist-featured-reason"><strong>No que se destacou:</strong> {{ journalist.featured_reason }}</p>
+      {% endif %}
       <div class="chips">
         {% for section in journalist.sections.split('|') %}<span>{{ section }}</span>{% endfor %}
       </div>

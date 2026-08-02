@@ -24,11 +24,18 @@
       {% endif %}
       <div>
         <span class="tag">{{ professional.category }}</span>
+        {% if professional.featured %}<span class="featured-admin-badge">Em destaque</span>{% endif %}
         <h2>{{ professional.name }}</h2>
         <p>{{ professional.role }}</p>
         <p><strong>Horário:</strong> {{ professional.hours }}</p>
+        {% if professional.featured and professional.featured_reason %}
+        <p class="featured-admin-reason"><strong>No que se destacou:</strong> {{ professional.featured_reason }}</p>
+        {% endif %}
         <div class="professional-admin-actions">
           <a class="button" href="{{ url_for('admin_professional_edit', professional_id=professional.id) }}">Editar dados</a>
+          {% if not professional.featured %}
+          <a class="button ghost" href="{{ url_for('admin_professional_edit', professional_id=professional.id) }}#destaque">Selecionar destaque</a>
+          {% endif %}
           <form method="post" action="{{ url_for('admin_professional_delete', professional_id=professional.id) }}" data-confirm data-confirm-message="Tem certeza que deseja excluir este profissional?">
             <button class="button danger" type="submit">Excluir</button>
           </form>

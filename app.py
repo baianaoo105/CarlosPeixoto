@@ -101,6 +101,8 @@ class Professional(db.Model):
     image_data = db.Column(db.LargeBinary)
     office_image_mimetype = db.Column(db.String(80))
     office_image_data = db.Column(db.LargeBinary)
+    featured = db.Column(db.Boolean, nullable=False, default=False)
+    featured_reason = db.Column(db.String(300))
 
 
 class Conversation(db.Model):
@@ -218,11 +220,18 @@ def migrate_professional_images():
 
     columns = {column["name"] for column in inspector.get_columns("professionals")}
     binary_type = "BYTEA" if db.engine.dialect.name == "postgresql" else "BLOB"
+    boolean_type = (
+        "BOOLEAN NOT NULL DEFAULT FALSE"
+        if db.engine.dialect.name == "postgresql"
+        else "BOOLEAN NOT NULL DEFAULT 0"
+    )
     additions = {
         "image_mimetype": "VARCHAR(80)",
         "image_data": binary_type,
         "office_image_mimetype": "VARCHAR(80)",
         "office_image_data": binary_type,
+        "featured": boolean_type,
+        "featured_reason": "VARCHAR(300)",
     }
 
     with db.engine.begin() as connection:
@@ -377,7 +386,12 @@ def datetime_br(value):
 def index():
     featured = db.session.execute(db.select(News).order_by(News.featured.desc(), News.created_at.desc()).limit(1)).scalar_one_or_none()
     news = db.session.execute(db.select(News).order_by(News.created_at.desc()).limit(9)).scalars().all()
-    journalist = db.session.execute(db.select(Professional).where(Professional.category == "Jornalista").limit(1)).scalar_one_or_none()
+    journalist = db.session.execute(
+        db.select(Professional)
+        .where(Professional.category == "Jornalista")
+        .order_by(Professional.featured.desc(), Professional.id.asc())
+        .limit(1)
+    ).scalar_one_or_none()
     return render_template("index.html", featured=featured, news=news, journalist=journalist)
 
 
@@ -388,7 +402,11 @@ def category(slug):
         category_name = slug
     if category_name is None:
         abort(404)
-    professionals = db.session.execute(db.select(Professional).where(Professional.category == category_name)).scalars().all()
+    professionals = db.session.execute(
+        db.select(Professional)
+        .where(Professional.category == category_name)
+        .order_by(Professional.featured.desc(), Professional.name.asc())
+    ).scalars().all()
     news = db.session.execute(db.select(News).where(News.category == category_name).order_by(News.created_at.desc())).scalars().all()
     return render_template("category.html", category=category_name, professionals=professionals, news=news)
 
@@ -510,7 +528,11 @@ def admin_professionals():
     professionals = db.session.execute(db.select(Professional)).scalars().all()
     ordered_professionals = sorted(
         professionals,
-        key=lambda item: (CATEGORIES.index(item.category), item.name.lower()),
+        key=lambda item: (
+            CATEGORIES.index(item.category),
+            not item.featured,
+            item.name.lower(),
+        ),
     )
     return render_template(
         "admin/professionals.html", professionals=ordered_professionals
@@ -524,6 +546,11 @@ def professional_form_values():
     address = request.form.get("address", "").strip()
     hours = request.form.get("hours", "").strip()
     age_text = request.form.get("age", "").strip()
+    featured_choice = request.form.get("featured_choice", "normal")
+    if featured_choice not in {"normal", "featured"}:
+        raise ValueError("Escolha uma opção válida para o destaque.")
+    featured = featured_choice == "featured"
+    featured_reason = request.form.get("featured_reason", "").strip()
     section_lines = [
         line.strip()
         for line in request.form.get("sections", "").splitlines()
@@ -546,6 +573,11 @@ def professional_form_values():
     if any(len(section) > 180 for section in section_lines):
         raise ValueError("Cada informação ou serviço deve ter no máximo 180 caracteres.")
 
+    if featured and not featured_reason:
+        raise ValueError("Explique no que este profissional se destacou.")
+    if len(featured_reason) > 300:
+        raise ValueError("O motivo do destaque deve ter no maximo 300 caracteres.")
+
     return {
         "category": category_name,
         "name": name,
@@ -554,7 +586,21 @@ def professional_form_values():
         "address": address or None,
         "hours": hours,
         "sections": "|".join(section_lines),
+        "featured": featured,
+        "featured_reason": featured_reason if featured else None,
     }
+
+
+def clear_featured_professionals(category_name, keep_id=None):
+    statement = db.select(Professional).where(
+        Professional.category == category_name,
+        Professional.featured.is_(True),
+    )
+    if keep_id is not None:
+        statement = statement.where(Professional.id != keep_id)
+    for professional in db.session.execute(statement).scalars():
+        professional.featured = False
+        professional.featured_reason = None
 
 
 def professional_photo_values():
@@ -585,6 +631,8 @@ def admin_professional_create():
     if request.method == "POST":
         try:
             professional = Professional(**professional_form_values())
+            if professional.featured:
+                clear_featured_professionals(professional.category)
             photo_values = professional_photo_values()
             if photo_values:
                 for key, value in photo_values.items():
@@ -608,8 +656,13 @@ def admin_professional_edit(professional_id):
     professional = db.get_or_404(Professional, professional_id)
     if request.method == "POST":
         try:
-            for key, value in professional_form_values().items():
+            form_values = professional_form_values()
+            for key, value in form_values.items():
                 setattr(professional, key, value)
+            if professional.featured:
+                clear_featured_professionals(
+                    professional.category, keep_id=professional.id
+                )
             photo_values = professional_photo_values()
             if photo_values:
                 for key, value in photo_values.items():

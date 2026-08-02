@@ -12,7 +12,7 @@
 
 <section class="section container professional-grid">
   {% for person in professionals %}
-  <article class="profile">
+  <article class="profile{% if person.featured %} is-featured{% endif %}">
     {% if person.image_data %}
     <img class="profile-photo" src="{{ url_for('professional_photo', professional_id=person.id) }}" alt="Foto de {{ person.name }}">
     {% else %}
@@ -20,9 +20,12 @@
     {% endif %}
 
     <div class="profile-content">
-      <span class="tag">Profissional em destaque</span>
+      {% if person.featured %}<span class="tag">Profissional em destaque</span>{% endif %}
       <h2>{{ person.name }}</h2>
       <p class="lead">{{ person.age }} anos • {{ person.role }}</p>
+      {% if person.featured and person.featured_reason %}
+      <p class="featured-reason"><strong>No que se destacou:</strong> {{ person.featured_reason }}</p>
+      {% endif %}
 
       <div class="profile-details">
         {% if person.address %}<p><strong>Endereço:</strong> {{ person.address }}</p>{% endif %}
