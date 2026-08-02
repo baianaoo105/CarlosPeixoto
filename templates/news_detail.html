@@ -16,8 +16,13 @@
 
   {% if article.source_name %}
   <div class="source-credit">
-    <span>Informação fornecida por</span>
-    <strong>{{ article.source_name }}</strong>
+    {% if article.source_image_data %}
+    <img src="{{ url_for('news_source_photo', news_id=article.id) }}" alt="Foto de {{ article.source_name }}">
+    {% endif %}
+    <div>
+      <span>Informação fornecida por</span>
+      <strong>{{ article.source_name }}</strong>
+    </div>
   </div>
   {% endif %}
 

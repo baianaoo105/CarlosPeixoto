@@ -64,6 +64,8 @@ class News(db.Model):
     content = db.Column(db.Text, nullable=False)
     category = db.Column(db.String(40), nullable=False, index=True)
     source_name = db.Column(db.String(120))
+    source_image_mimetype = db.Column(db.String(80))
+    source_image_data = db.Column(db.LargeBinary)
     image = db.Column(db.String(255))
     image_mimetype = db.Column(db.String(80))
     image_data = db.Column(db.LargeBinary)
@@ -243,14 +245,22 @@ def migrate_news_source_name():
     if "news" not in inspector.get_table_names():
         return
     columns = {column["name"] for column in inspector.get_columns("news")}
-    if "source_name" in columns:
-        return
-
-    statement = "ALTER TABLE news ADD COLUMN source_name VARCHAR(120)"
-    if db.engine.dialect.name == "postgresql":
-        statement = "ALTER TABLE news ADD COLUMN IF NOT EXISTS source_name VARCHAR(120)"
+    binary_type = "BYTEA" if db.engine.dialect.name == "postgresql" else "BLOB"
+    additions = {
+        "source_name": "VARCHAR(120)",
+        "source_image_mimetype": "VARCHAR(80)",
+        "source_image_data": binary_type,
+    }
     with db.engine.begin() as connection:
-        connection.execute(text(statement))
+        for name, definition in additions.items():
+            if name in columns:
+                continue
+            if db.engine.dialect.name == "postgresql":
+                connection.execute(
+                    text(f"ALTER TABLE news ADD COLUMN IF NOT EXISTS {name} {definition}")
+                )
+            else:
+                connection.execute(text(f"ALTER TABLE news ADD COLUMN {name} {definition}"))
 
 
 def migrate_conversation_details():
@@ -714,6 +724,19 @@ def news_form_values():
     }
 
 
+def news_source_photo_values():
+    photo = request.files.get("source_photo")
+    if not photo or not photo.filename:
+        return None
+    if not request.form.get("source_name", "").strip():
+        raise ValueError("Informe o nome do profissional antes de adicionar a foto.")
+    saved = save_image(photo)
+    return {
+        "source_image_mimetype": saved["image_mimetype"],
+        "source_image_data": saved["image_data"],
+    }
+
+
 @app.route("/admin/noticia/nova", methods=["GET", "POST"])
 @admin_required
 def admin_news_create():
@@ -721,6 +744,7 @@ def admin_news_create():
         try:
             values = news_form_values()
             values.update(save_image(request.files.get("image")) or {})
+            values.update(news_source_photo_values() or {})
             db.session.add(News(**values))
             db.session.commit()
             flash("Notícia cadastrada.", "success")
@@ -738,8 +762,16 @@ def admin_news_edit(news_id):
         try:
             values = news_form_values()
             values.update(save_image(request.files.get("image")) or {})
+            source_photo_values = news_source_photo_values()
+            if source_photo_values:
+                values.update(source_photo_values)
             for key, value in values.items():
                 setattr(article, key, value)
+            if not source_photo_values and (
+                request.form.get("remove_source_photo") or not values["source_name"]
+            ):
+                article.source_image_mimetype = None
+                article.source_image_data = None
             article.updated_at = utc_now()
             db.session.commit()
             flash("Notícia atualizada.", "success")
@@ -765,6 +797,17 @@ def uploaded_file(news_id):
     if not article.image_data:
         abort(404)
     return Response(article.image_data, mimetype=article.image_mimetype or "application/octet-stream")
+
+
+@app.route("/uploads/noticia/<int:news_id>/profissional")
+def news_source_photo(news_id):
+    article = db.get_or_404(News, news_id)
+    if not article.source_image_data:
+        abort(404)
+    return Response(
+        article.source_image_data,
+        mimetype=article.source_image_mimetype or "application/octet-stream",
+    )
 
 
 @app.route("/uploads/profissional/<int:professional_id>")

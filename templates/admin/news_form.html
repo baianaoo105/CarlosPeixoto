@@ -21,14 +21,30 @@
         </select>
       </label>
 
-      <label>Foto (PNG, JPG, WEBP ou GIF; até 8 MB)
+      <label>Foto principal da notícia
         <input type="file" name="image" accept="image/png,image/jpeg,image/webp,image/gif">
+        <span class="hint">PNG, JPG, WEBP ou GIF; até 8 MB.</span>
       </label>
 
       <label class="wide">Profissional que forneceu a informação
         <input name="source_name" maxlength="120" value="{{ request.form.get('source_name', (article.source_name or '') if article else '') }}" placeholder="Exemplo: Dra. Marina Almeida">
         <span class="hint">Campo opcional. O nome aparecerá como crédito na página da notícia.</span>
       </label>
+
+      <label class="wide">Foto do profissional que forneceu a informação
+        <input type="file" name="source_photo" accept="image/png,image/jpeg,image/webp,image/gif">
+        <span class="hint">Campo opcional. A foto aparecerá em formato circular ao lado do nome.</span>
+      </label>
+
+      {% if article and article.source_image_data %}
+      <div class="wide current-source-photo">
+        <img src="{{ url_for('news_source_photo', news_id=article.id) }}" alt="Foto atual de {{ article.source_name or 'profissional' }}">
+        <label class="check">
+          <input type="checkbox" name="remove_source_photo">
+          Remover a foto atual do profissional
+        </label>
+      </div>
+      {% endif %}
 
       <label class="wide">Resumo
         <textarea name="summary" maxlength="350" rows="3" required>{{ request.form.get('summary', article.summary if article else '') }}</textarea>

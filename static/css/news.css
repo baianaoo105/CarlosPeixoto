@@ -1,12 +1,29 @@
 .source-credit {
   display: inline-flex;
-  flex-direction: column;
-  gap: 1px;
+  align-items: center;
+  gap: 11px;
   margin-top: 20px;
   padding: 11px 15px;
   border-left: 4px solid var(--blue);
   border-radius: 0 9px 9px 0;
   background: var(--paper);
+}
+
+.source-credit > img {
+  width: 54px;
+  height: 54px;
+  flex: none;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: center;
+  box-shadow: 0 3px 10px rgba(20, 40, 50, .12);
+}
+
+.source-credit > div {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
 }
 
 .source-credit span {
@@ -19,4 +36,26 @@
 
 .source-credit strong {
   color: var(--ink);
+}
+
+.current-source-photo {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.current-source-photo img {
+  width: 82px;
+  height: 82px;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.current-source-photo .check {
+  margin: 0;
 }
