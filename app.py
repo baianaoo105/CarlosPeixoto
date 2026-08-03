@@ -1369,8 +1369,9 @@ def server_error(error):
 
 with app.app_context():
     db.create_all()
-    migrate_legacy_sqlite()
+    # As colunas novas precisam existir antes de qualquer consulta ORM à tabela news.
     migrate_news_source_name()
+    migrate_legacy_sqlite()
     migrate_professional_images()
     migrate_conversation_details()
     seed_database()
