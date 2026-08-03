@@ -4,6 +4,7 @@ Portal de notícias em Flask preparado para publicação na Vercel.
 
 ## Recursos
 
+- API pública de notícias, programação musical pelo painel e projeto separado do BOT PEIXOTO para divulgação automática, comandos de música e reprodução contínua em canal de voz.
 - Seleção pelo administrador de um profissional em destaque por editoria, com explicação do motivo do destaque.
 - Fundo responsivo em azul-claro visível, combinando com a identidade do jornal.
 - Foto opcional do profissional que forneceu a informação em cada notícia.
@@ -89,8 +90,12 @@ vercel --prod
 ## Acessos
 
 - Site: `https://carlos-peixoto.vercel.app`
+- API para o BOT PEIXOTO: `https://carlos-peixoto.vercel.app/api/noticias`
+- Programação musical do bot: `https://carlos-peixoto.vercel.app/admin/musicas`
 - Painel: `https://carlos-peixoto.vercel.app/admin`
 - Chat particular: `https://carlos-peixoto.vercel.app/contato`
+
+As instruções do bot estão em `bot_peixoto/README.md`. O bot precisa ser executado separadamente da Vercel.
 
 As conversas recebidas aparecem no botão **Mensagens** do painel. Cada visitante identifica sua conversa por um cookie assinado; se apagar os dados do navegador, ele perde o acesso ao histórico daquela conversa.
 

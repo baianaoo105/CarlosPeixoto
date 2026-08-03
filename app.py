@@ -2,10 +2,11 @@ import os
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from pathlib import Path
+from urllib.parse import urlparse
 from uuid import uuid4
 
-from flask import (Flask, Response, abort, flash, redirect, render_template,
-                   request, session, url_for)
+from flask import (Flask, Response, abort, flash, jsonify, redirect,
+                   render_template, request, session, url_for)
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func, inspect, text
 from werkzeug.utils import secure_filename
@@ -13,6 +14,20 @@ from werkzeug.utils import secure_filename
 BASE_DIR = Path(__file__).resolve().parent
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp", "gif"}
 MAX_IMAGE_SIZE = 8 * 1024 * 1024
+MAX_AUDIO_SIZE = 4 * 1024 * 1024
+ALLOWED_AUDIO_EXTENSIONS = {"mp3", "m4a", "ogg", "opus", "wav", "webm", "aac", "flac"}
+ALLOWED_AUDIO_MIMETYPES = {
+    "audio/aac",
+    "audio/flac",
+    "audio/mp4",
+    "audio/mpeg",
+    "audio/ogg",
+    "audio/opus",
+    "audio/wav",
+    "audio/webm",
+    "audio/x-wav",
+    "application/ogg",
+}
 CATEGORIES = ["Polícia", "Médicos", "Bombeiros", "Juiz", "Advogado", "Jornalista"]
 CATEGORY_SLUGS = {
     "policia": "Polícia",
@@ -103,6 +118,23 @@ class Professional(db.Model):
     office_image_data = db.Column(db.LargeBinary)
     featured = db.Column(db.Boolean, nullable=False, default=False)
     featured_reason = db.Column(db.String(300))
+
+
+class MusicTrack(db.Model):
+    __tablename__ = "music_tracks"
+
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(180), nullable=False)
+    source_url = db.Column(db.String(1000))
+    audio_filename = db.Column(db.String(255))
+    audio_mimetype = db.Column(db.String(100))
+    audio_data = db.Column(db.LargeBinary)
+    enabled = db.Column(db.Boolean, nullable=False, default=True)
+    position = db.Column(db.Integer, nullable=False, default=0)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
+    updated_at = db.Column(
+        db.DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now
+    )
 
 
 class Conversation(db.Model):
@@ -314,6 +346,30 @@ def save_image(file):
     }
 
 
+def save_audio(file):
+    if not file or not file.filename:
+        return None
+    original = secure_filename(file.filename)
+    extension = original.rsplit(".", 1)[-1].lower() if "." in original else ""
+    if extension not in ALLOWED_AUDIO_EXTENSIONS:
+        raise ValueError("Formato inválido. Use MP3, M4A, OGG, OPUS, WAV, WEBM, AAC ou FLAC.")
+    if file.mimetype and file.mimetype not in ALLOWED_AUDIO_MIMETYPES:
+        raise ValueError("O arquivo enviado não foi reconhecido como áudio.")
+    data = file.read(MAX_AUDIO_SIZE + 1)
+    if len(data) > MAX_AUDIO_SIZE:
+        raise ValueError("O áudio ultrapassa o limite de 4 MB da hospedagem.")
+    return {
+        "audio_filename": original,
+        "audio_mimetype": file.mimetype or "application/octet-stream",
+        "audio_data": data,
+    }
+
+
+def valid_music_url(value):
+    parsed = urlparse(value)
+    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
+
+
 def save_chat_attachments(files):
     photos = [photo for photo in files if photo and photo.filename]
     if len(photos) > 3:
@@ -393,6 +449,73 @@ def index():
         .limit(1)
     ).scalar_one_or_none()
     return render_template("index.html", featured=featured, news=news, journalist=journalist)
+
+
+@app.route("/api/noticias")
+def news_api():
+    """Lista publica e resumida usada pelo BOT PEIXOTO."""
+    limit = request.args.get("limit", default=20, type=int) or 20
+    limit = max(1, min(limit, 50))
+    items = db.session.execute(
+        db.select(News).order_by(News.id.desc()).limit(limit)
+    ).scalars().all()
+    response = jsonify(
+        {
+            "site": url_for("index"),
+            "news": [
+                {
+                    "id": item.id,
+                    "title": item.title,
+                    "summary": item.summary,
+                    "category": item.category,
+                    "source_name": item.source_name,
+                    "published_at": item.created_at.isoformat(),
+                    "updated_at": item.updated_at.isoformat(),
+                    "url": url_for("news_detail", news_id=item.id),
+                    "image_url": (
+                        url_for("uploaded_file", news_id=item.id)
+                        if item.image_data
+                        else url_for("static", filename="img/icone.png")
+                    ),
+                }
+                for item in items
+            ],
+        }
+    )
+    response.headers["Cache-Control"] = "no-store, max-age=0"
+    return response
+
+
+@app.route("/api/musicas")
+def music_api():
+    items = db.session.execute(
+        db.select(MusicTrack)
+        .where(MusicTrack.enabled.is_(True))
+        .order_by(MusicTrack.position.asc(), MusicTrack.id.asc())
+    ).scalars().all()
+    response = jsonify(
+        {
+            "site": url_for("index"),
+            "music": [
+                {
+                    "id": item.id,
+                    "title": item.title,
+                    "source_type": "upload" if item.audio_data else "link",
+                    "source_url": item.source_url,
+                    "audio_url": (
+                        url_for("music_audio", music_id=item.id)
+                        if item.audio_data
+                        else None
+                    ),
+                    "position": item.position,
+                    "updated_at": item.updated_at.isoformat(),
+                }
+                for item in items
+            ],
+        }
+    )
+    response.headers["Cache-Control"] = "no-store, max-age=0"
+    return response
 
 
 @app.route("/categoria/<slug>")
@@ -537,6 +660,103 @@ def admin_professionals():
     return render_template(
         "admin/professionals.html", professionals=ordered_professionals
     )
+
+
+@app.route("/admin/musicas")
+@admin_required
+def admin_music():
+    tracks = db.session.execute(
+        db.select(MusicTrack).order_by(
+            MusicTrack.position.asc(), MusicTrack.id.asc()
+        )
+    ).scalars().all()
+    return render_template("admin/music.html", tracks=tracks)
+
+
+def music_form_values(track=None):
+    title = request.form.get("title", "").strip()
+    source_url = request.form.get("source_url", "").strip()
+    position_text = request.form.get("position", "0").strip() or "0"
+    enabled = request.form.get("enabled") == "on"
+    try:
+        position = int(position_text)
+    except ValueError as error:
+        raise ValueError("Informe uma ordem válida para a música.") from error
+
+    if not title:
+        raise ValueError("Informe o título da música.")
+    if len(title) > 180 or len(source_url) > 1000:
+        raise ValueError("O título ou o link ultrapassa o limite permitido.")
+    if not 0 <= position <= 9999:
+        raise ValueError("A ordem deve ficar entre 0 e 9999.")
+    if source_url and not valid_music_url(source_url):
+        raise ValueError("Informe um link começando com http:// ou https://.")
+
+    saved_audio = save_audio(request.files.get("audio"))
+    if source_url and saved_audio:
+        raise ValueError("Escolha somente uma fonte: link ou arquivo de áudio.")
+
+    values = {
+        "title": title,
+        "position": position,
+        "enabled": enabled,
+    }
+    if saved_audio:
+        values.update(saved_audio)
+        values["source_url"] = None
+    elif source_url:
+        values.update(
+            {
+                "source_url": source_url,
+                "audio_filename": None,
+                "audio_mimetype": None,
+                "audio_data": None,
+            }
+        )
+    elif not track or not track.audio_data:
+        raise ValueError("Envie um arquivo de áudio ou informe um link de música.")
+    return values
+
+
+@app.route("/admin/musica/nova", methods=["GET", "POST"])
+@admin_required
+def admin_music_create():
+    if request.method == "POST":
+        try:
+            db.session.add(MusicTrack(**music_form_values()))
+            db.session.commit()
+            flash("Música adicionada à programação do BOT PEIXOTO.", "success")
+            return redirect(url_for("admin_music"))
+        except ValueError as error:
+            flash(str(error), "error")
+    return render_template("admin/music_form.html", track=None)
+
+
+@app.route("/admin/musica/<int:music_id>/editar", methods=["GET", "POST"])
+@admin_required
+def admin_music_edit(music_id):
+    track = db.get_or_404(MusicTrack, music_id)
+    if request.method == "POST":
+        try:
+            for key, value in music_form_values(track).items():
+                setattr(track, key, value)
+            db.session.commit()
+            flash("Programação musical atualizada.", "success")
+            return redirect(url_for("admin_music"))
+        except ValueError as error:
+            flash(str(error), "error")
+    return render_template("admin/music_form.html", track=track)
+
+
+@app.route("/admin/musica/<int:music_id>/excluir", methods=["POST"])
+@admin_required
+def admin_music_delete(music_id):
+    track = db.get_or_404(MusicTrack, music_id)
+    title = track.title
+    db.session.delete(track)
+    db.session.commit()
+    flash(f"Música '{title}' excluída da programação.", "success")
+    return redirect(url_for("admin_music"))
 
 
 def professional_form_values():
@@ -885,6 +1105,22 @@ def professional_office_photo(professional_id):
     )
 
 
+@app.route("/midia/musica/<int:music_id>")
+def music_audio(music_id):
+    track = db.get_or_404(MusicTrack, music_id)
+    if not track.enabled or not track.audio_data:
+        abort(404)
+    response = Response(
+        track.audio_data,
+        mimetype=track.audio_mimetype or "application/octet-stream",
+    )
+    response.headers["Content-Disposition"] = (
+        f'inline; filename="{secure_filename(track.audio_filename or "musica")}"'
+    )
+    response.headers["Cache-Control"] = "no-store, max-age=0"
+    return response
+
+
 @app.route("/contato/foto/<int:attachment_id>")
 def chat_attachment_file(attachment_id):
     attachment = db.get_or_404(ChatAttachment, attachment_id)
@@ -905,7 +1141,7 @@ def not_found(_error):
 
 @app.errorhandler(413)
 def too_large(_error):
-    return render_template("error.html", code=413, message="A imagem ultrapassa o limite de 8 MB."), 413
+    return render_template("error.html", code=413, message="O arquivo enviado ultrapassa o limite permitido."), 413
 
 
 @app.errorhandler(500)
