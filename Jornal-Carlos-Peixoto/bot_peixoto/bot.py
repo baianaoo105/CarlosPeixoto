@@ -396,6 +396,26 @@ def extract_track(query: str, requester: str, text_channel_id: int) -> Track:
     )
 
 
+def queued_track_from_query(query: str, requester: str, text_channel_id: int) -> Track:
+    parsed = urlparse(query)
+    is_link = parsed.scheme in {"http", "https"} and bool(parsed.netloc)
+    if is_spotify_url(query):
+        title = "Faixa solicitada pelo Spotify"
+    elif is_link:
+        title = "Música solicitada por link"
+    else:
+        title = query
+    return Track(
+        title=title[:180],
+        webpage_url=query,
+        thumbnail=None,
+        duration=None,
+        requester=requester,
+        text_channel_id=text_channel_id,
+        display_url=query if is_link else None,
+    )
+
+
 def extract_stream_url(webpage_url: str) -> str:
     options = {
         "format": "bestaudio/best",
@@ -416,7 +436,7 @@ def extract_stream_url(webpage_url: str) -> str:
     return stream_url
 
 
-def download_track_audio(webpage_url: str) -> tuple[str, Path]:
+def download_track_audio(webpage_url: str) -> tuple[str, Path, dict[str, Any]]:
     working_directory = Path(tempfile.mkdtemp(prefix="bot-peixoto-musica-"))
     options = {
         "format": "bestaudio/best",
@@ -434,14 +454,14 @@ def download_track_audio(webpage_url: str) -> tuple[str, Path]:
                 info = entries[0] if entries else None
             expected = Path(downloader.prepare_filename(info)) if info else None
         if expected and expected.exists():
-            return str(expected), working_directory
+            return str(expected), working_directory, info
         candidates = [
             item
             for item in working_directory.iterdir()
             if item.is_file() and item.suffix not in {".part", ".ytdl"}
         ]
         if candidates:
-            return str(candidates[0]), working_directory
+            return str(candidates[0]), working_directory, info or {}
         raise ValueError("A música foi encontrada, mas o áudio não pôde ser baixado.")
     except Exception:
         shutil.rmtree(working_directory, ignore_errors=True)
@@ -566,9 +586,38 @@ class GuildPlayer:
                         track.webpage_url
                     )
                 else:
-                    stream_url, temporary_directory = await asyncio.to_thread(
+                    if is_spotify_url(track.webpage_url):
+                        spotify_track = (
+                            await asyncio.to_thread(
+                                extract_spotify_selection,
+                                track.webpage_url,
+                                track.requester,
+                                track.text_channel_id,
+                                1,
+                            )
+                        ).tracks[0]
+                        track.title = spotify_track.title
+                        track.webpage_url = spotify_track.webpage_url
+                        track.display_url = spotify_track.display_url
+                        track.thumbnail = spotify_track.thumbnail
+                        track.duration = spotify_track.duration
+
+                    stream_url, temporary_directory, metadata = await asyncio.to_thread(
                         download_track_audio, track.webpage_url
                     )
+                    if metadata:
+                        track.title = str(metadata.get("title") or track.title)
+                        track.thumbnail = str(metadata.get("thumbnail") or "") or track.thumbnail
+                        track.duration = spotify_item_duration(
+                            metadata.get("duration")
+                        ) or track.duration
+                        metadata_url = str(
+                            metadata.get("webpage_url")
+                            or metadata.get("original_url")
+                            or ""
+                        )
+                        if metadata_url.startswith(("http://", "https://")):
+                            track.display_url = track.display_url or metadata_url
                 source = discord.PCMVolumeTransformer(
                     discord.FFmpegPCMAudio(
                         stream_url,
@@ -1020,6 +1069,9 @@ def require_same_voice(interaction: discord.Interaction) -> discord.VoiceClient:
 async def play(interaction: discord.Interaction, busca: app_commands.Range[str, 1, 200]):
     await interaction.response.defer(thinking=True)
     try:
+        await interaction.edit_original_response(
+            content="🔎 Pedido recebido. Preparando a fila…"
+        )
         await ensure_voice(interaction)
         if not interaction.guild or not interaction.channel_id:
             raise ValueError("Não foi possível identificar o servidor ou o canal.")
@@ -1028,7 +1080,16 @@ async def play(interaction: discord.Interaction, busca: app_commands.Range[str, 
             raise ValueError("A fila está cheia. Use /parar para limpá-la.")
 
         query = str(busca).strip()
+        selection: SpotifySelection | None = None
+        spotify_type = ""
         if is_spotify_url(query):
+            canonical_url = await asyncio.to_thread(canonical_spotify_url, query)
+            spotify_type = spotify_entity_type(canonical_url)
+
+        if spotify_type in {"playlist", "album", "artist"}:
+            await interaction.edit_original_response(
+                content="🎶 Lendo as faixas do Spotify e organizando a playlist…"
+            )
             available = player.queue.maxsize - player.queue.qsize()
             selection = await asyncio.to_thread(
                 extract_spotify_selection,
@@ -1046,8 +1107,7 @@ async def play(interaction: discord.Interaction, busca: app_commands.Range[str, 
             if not added:
                 raise ValueError("Não havia espaço disponível para adicionar a seleção.")
         else:
-            track = await asyncio.to_thread(
-                extract_track,
+            track = queued_track_from_query(
                 query,
                 interaction.user.display_name,
                 interaction.channel_id,
@@ -1064,10 +1124,11 @@ async def play(interaction: discord.Interaction, busca: app_commands.Range[str, 
         ):
             voice.stop()
 
-        if is_spotify_url(query) and len(added) > 1:
+        if selection is not None and len(added) > 1:
             _first_track, first_position, first_wait = added[0]
             _last_track, last_position, _last_wait = added[-1]
-            await interaction.followup.send(
+            await interaction.edit_original_response(
+                content=None,
                 embed=playlist_added_embed(
                     selection,
                     len(added),
@@ -1079,17 +1140,20 @@ async def play(interaction: discord.Interaction, busca: app_commands.Range[str, 
             )
         else:
             track, position, estimated_wait = added[0]
-            await interaction.followup.send(
+            await interaction.edit_original_response(
+                content=None,
                 embed=track_added_embed(
                     track, position, estimated_wait, interaction.user
                 )
             )
     except (DownloadError, ValueError) as error:
-        await interaction.followup.send(f"❌ {error}", ephemeral=True)
+        await interaction.edit_original_response(content=f"❌ {error}", embed=None)
     except asyncio.QueueFull:
-        await interaction.followup.send("❌ A fila ficou cheia.", ephemeral=True)
+        await interaction.edit_original_response(content="❌ A fila ficou cheia.", embed=None)
     except discord.ClientException as error:
-        await interaction.followup.send(f"❌ Não consegui entrar no canal: {error}", ephemeral=True)
+        await interaction.edit_original_response(
+            content=f"❌ Não consegui entrar no canal: {error}", embed=None
+        )
 
 
 @bot.tree.command(name="pausar", description="Pausa a música atual")

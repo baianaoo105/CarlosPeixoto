@@ -12,6 +12,7 @@ Bot do Discord ligado ao **Jornal Carlos Peixoto**. Ele publica automaticamente 
 - Reconhece faixas, álbuns e playlists do Spotify com auxílio do spotDL.
 - Mantém uma fila musical separada para cada servidor.
 - Mostra cartões da fila com capa, duração, posição e estimativa para tocar.
+- Confirma pesquisas e faixas individuais imediatamente; capas e duração são completadas durante a preparação da reprodução.
 - Entra automaticamente no canal de voz configurado e reconecta se a conexão cair.
 - Repete continuamente a programação musical cadastrada no painel do Jornal.
 - Dá prioridade aos pedidos feitos com `/tocar` e retoma a programação depois.
