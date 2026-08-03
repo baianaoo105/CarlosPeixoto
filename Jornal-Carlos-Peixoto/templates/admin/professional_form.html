@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+{% block title %}{{ 'Editar profissional' if professional else 'Novo profissional' }} — Painel editorial{% endblock %}
+
+{% block content %}
+<section class="form-page container">
+  <form method="post" enctype="multipart/form-data" class="panel">
+    <p class="eyebrow">Painel de profissionais</p>
+    <h1>{{ 'Editar apresentação profissional' if professional else 'Cadastrar novo profissional' }}</h1>
+
+    <div class="field-grid">
+      <label class="wide">Editoria
+        {% set selected_category = request.form.get('category', professional.category if professional else '') %}
+        <select name="category" required>
+          <option value="">Selecione</option>
+          {% for item in categories %}
+          <option value="{{ item }}" {% if selected_category == item %}selected{% endif %}>{{ item }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label>Nome
+        <input name="name" maxlength="120" value="{{ request.form.get('name', professional.name if professional else '') }}" required>
+      </label>
+      <label>Idade
+        <input type="number" name="age" min="18" max="120" value="{{ request.form.get('age', professional.age if professional else '') }}" required>
+      </label>
+
+      <label class="wide">Foto do profissional
+        <input type="file" name="photo" accept="image/png,image/jpeg,image/webp,image/gif">
+        <span class="hint">PNG, JPG, WEBP ou GIF; até 8 MB. A imagem será cortada em formato circular.</span>
+      </label>
+
+      {% if professional and professional.image_data %}
+      <div class="wide current-professional-photo">
+        <img src="{{ url_for('professional_photo', professional_id=professional.id) }}" alt="Foto atual de {{ professional.name }}">
+        <label class="check"><input type="checkbox" name="remove_photo"> Remover a foto atual</label>
+      </div>
+      {% endif %}
+
+      <label class="wide">Função exercida
+        <input name="role" maxlength="150" value="{{ request.form.get('role', professional.role if professional else '') }}" required>
+      </label>
+
+      <label class="wide">Endereço do escritório ou atendimento
+        <input name="address" maxlength="250" value="{{ request.form.get('address', (professional.address or '') if professional else '') }}" placeholder="Deixe vazio quando não se aplicar">
+      </label>
+
+      <label class="wide">Foto do escritório ou local de atendimento
+        <input type="file" name="office_photo" accept="image/png,image/jpeg,image/webp,image/gif">
+        <span class="hint">Campo opcional. A imagem aparecerá em formato retangular no perfil.</span>
+      </label>
+
+      {% if professional and professional.office_image_data %}
+      <div class="wide current-office-photo">
+        <img src="{{ url_for('professional_office_photo', professional_id=professional.id) }}" alt="Foto atual do local de atendimento de {{ professional.name }}">
+        <label class="check"><input type="checkbox" name="remove_office_photo"> Remover a foto do escritório</label>
+      </div>
+      {% endif %}
+
+      <label class="wide">Horário de atendimento
+        <input name="hours" maxlength="250" value="{{ request.form.get('hours', professional.hours if professional else '') }}" required>
+      </label>
+      <label class="wide">Informações e serviços — um item por linha
+        <textarea name="sections" rows="9" required>{% if request.form.get('sections') is not none %}{{ request.form.get('sections') }}{% elif professional %}{{ professional.sections.split('|')|join('\n') }}{% endif %}</textarea>
+      </label>
+      {% if request.method == 'POST' %}
+        {% set featured_choice = request.form.get('featured_choice', 'normal') %}
+      {% elif professional and professional.featured %}
+        {% set featured_choice = 'featured' %}
+      {% else %}
+        {% set featured_choice = 'normal' %}
+      {% endif %}
+      <div class="wide featured-editor" id="destaque">
+        <p class="featured-editor-title">Destaque do profissional</p>
+        <div class="featured-options">
+          <label class="featured-choice">
+            <input type="radio" name="featured_choice" value="normal" {% if featured_choice == 'normal' %}checked{% endif %}>
+            <span>
+              <strong>Não exibir em destaque</strong>
+              <small>Ao editar um destaque atual, esta opção remove o destaque do profissional.</small>
+            </span>
+          </label>
+          <label class="featured-choice">
+            <input type="radio" name="featured_choice" value="featured" {% if featured_choice == 'featured' %}checked{% endif %}>
+            <span>
+              <strong>Selecionar como profissional em destaque</strong>
+              <small>O perfil aparecerá primeiro e receberá a identificação de destaque.</small>
+            </span>
+          </label>
+        </div>
+        <label>No que este profissional se destacou?
+          <textarea name="featured_reason" maxlength="300" rows="3" placeholder="Exemplo: destacou-se no atendimento e apoio à comunidade">{{ request.form.get('featured_reason', (professional.featured_reason or '') if professional else '') }}</textarea>
+        </label>
+        <span class="hint">O motivo é obrigatório somente ao selecionar o destaque. O destaque anterior da mesma editoria será removido automaticamente.</span>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button class="button" type="submit">{{ 'Salvar alterações' if professional else 'Cadastrar profissional' }}</button>
+      <a class="button ghost" href="{{ url_for('admin_professionals') }}">Cancelar</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

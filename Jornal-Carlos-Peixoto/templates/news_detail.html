@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% block title %}{{ article.title }} — Jornal Carlos Peixoto{% endblock %}
+{% block social_type %}article{% endblock %}
+{% block social_title %}{{ article.title }}{% endblock %}
+{% block social_description %}{{ article.summary }}{% endblock %}
+{% block social_image %}{% if article.image_data %}{{ url_for('uploaded_file', news_id=article.id, _external=True) }}{% else %}{{ url_for('static', filename='img/icone.png', v='social-1', _external=True) }}{% endif %}{% endblock %}
+{% block social_image_alt %}{% if article.image_data %}Imagem da notícia {{ article.title }}{% else %}Ícone do Jornal Carlos Peixoto{% endif %}{% endblock %}
+
+{% block content %}
+<article class="article container">
+  <a class="back" href="{{ url_for('category', slug=category_slug[article.category]) }}">← {{ article.category }}</a>
+  <span class="tag">{{ article.category }}</span>
+  <h1>{{ article.title }}</h1>
+  <p class="deck">{{ article.summary }}</p>
+  <div class="byline">Por Jornal Carlos Peixoto • {{ article.created_at|datetime_br }}</div>
+
+  {% if article.source_name %}
+  <div class="source-credit">
+    {% if article.source_image_data %}
+    <img src="{{ url_for('news_source_photo', news_id=article.id) }}" alt="Foto de {{ article.source_name }}">
+    {% endif %}
+    <div>
+      <span>Informação fornecida por</span>
+      <strong>{{ article.source_name }}</strong>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if article.image %}
+  <img class="article-image" src="{{ url_for('uploaded_file', news_id=article.id) }}" alt="{{ article.title }}">
+  {% endif %}
+
+  <div class="article-body">
+    {% for paragraph in article.content.split('\n') %}
+      {% if paragraph %}<p>{{ paragraph }}</p>{% endif %}
+    {% endfor %}
+  </div>
+</article>
+
+<section id="comentarios" class="comments container">
+  <h2>Comentários ({{ comments|length }})</h2>
+  <form method="post" class="comment-form">
+    <label>Seu nome<input name="author" maxlength="80" required></label>
+    <label>Comentário<textarea name="content" maxlength="1000" rows="4" required></textarea></label>
+    <button class="button" type="submit">Publicar comentário</button>
+  </form>
+  <div class="comment-list">
+    {% for comment in comments %}
+    <article>
+      <strong>{{ comment.author }}</strong>
+      <time>{{ comment.created_at|datetime_br }}</time>
+      <p>{{ comment.content }}</p>
+    </article>
+    {% else %}
+    <p>Seja a primeira pessoa a comentar.</p>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

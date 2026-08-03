@@ -1,0 +1,367 @@
+/* Painel administrativo organizado por categoria. */
+.dashboard-intro {
+  margin: .35rem 0 0;
+  color: var(--muted);
+}
+
+.category-admin-list {
+  display: grid;
+  gap: 14px;
+}
+
+.category-admin-card {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.category-admin-card summary {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(260px, 1.3fr) 30px;
+  align-items: center;
+  gap: 22px;
+  padding: 21px 24px;
+  cursor: pointer;
+  list-style: none;
+  background: var(--paper);
+}
+
+.category-admin-card summary::-webkit-details-marker {
+  display: none;
+}
+
+.category-admin-card[open] summary {
+  border-bottom: 1px solid var(--line);
+}
+
+.category-admin-name {
+  color: var(--ink);
+  font-size: 1.25rem;
+  font-weight: bold;
+}
+
+.category-admin-meta {
+  display: flex;
+  justify-content: flex-end;
+  gap: 24px;
+  color: var(--muted);
+  font-size: .86rem;
+}
+
+.category-admin-arrow {
+  color: var(--blue-dark);
+  font-size: 1.5rem;
+  transition: transform .2s;
+}
+
+.category-admin-card[open] .category-admin-arrow {
+  transform: rotate(180deg);
+}
+
+.category-admin-table {
+  border: 0;
+  border-radius: 0;
+}
+
+.category-admin-empty {
+  padding: 24px;
+}
+
+.category-admin-empty p {
+  margin: 0 0 5px;
+  color: var(--muted);
+}
+
+.category-admin-empty a {
+  color: var(--blue-dark);
+  font-weight: bold;
+}
+
+@media (max-width: 760px) {
+  .category-admin-card summary {
+    grid-template-columns: 1fr 24px;
+    gap: 8px 12px;
+  }
+
+  .category-admin-meta {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-content: flex-start;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .category-admin-arrow {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}
+
+.professional-admin-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.professional-admin-card {
+  display: grid;
+  grid-template-columns: 76px 1fr;
+  gap: 18px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.professional-admin-avatar {
+  display: grid;
+  place-items: center;
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  background: var(--blue);
+  color: #fff;
+  font-size: 1.8rem;
+  font-weight: bold;
+}
+
+.professional-admin-card h2 {
+  margin: 8px 0 2px;
+  font-size: 1.3rem;
+}
+
+.professional-admin-card p {
+  margin: 3px 0;
+  color: var(--muted);
+}
+
+.professional-admin-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.professional-admin-actions form {
+  margin: 0;
+}
+
+.button.danger {
+  border: 1px solid var(--red);
+  background: transparent;
+  color: var(--red);
+}
+
+.music-help {
+  margin-bottom: 20px;
+  padding: 18px 20px;
+  background: #e6f6fd;
+}
+
+.music-help p {
+  margin: 6px 0 0;
+  line-height: 1.5;
+}
+
+.music-admin-list {
+  display: grid;
+  gap: 14px;
+}
+
+.music-admin-card {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  gap: 18px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.music-admin-card.is-disabled {
+  opacity: .68;
+}
+
+.music-order {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--blue);
+  color: #fff;
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.music-admin-content {
+  min-width: 0;
+}
+
+.music-admin-card h2 {
+  margin: 8px 0 4px;
+  font-size: 1.28rem;
+}
+
+.music-status {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: .7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.music-status.active {
+  background: #dbf5e5;
+  color: #116936;
+}
+
+.music-status.inactive {
+  background: #f2e4e4;
+  color: #8b2c2c;
+}
+
+.music-source {
+  overflow-wrap: anywhere;
+}
+
+.music-source a {
+  color: var(--blue-dark);
+}
+
+.music-admin-card audio,
+.current-music-file audio {
+  display: block;
+  width: min(100%, 560px);
+  margin: 10px 0 14px;
+}
+
+.music-empty {
+  padding: 28px;
+  text-align: center;
+}
+
+.music-enabled {
+  align-self: end;
+  margin: 0 0 16px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.music-source-picker {
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: #e6f6fd;
+}
+
+.music-source-picker h2,
+.music-source-picker p {
+  margin: 0;
+}
+
+.music-source-picker h2 {
+  font-size: 1rem;
+}
+
+.music-source-picker p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: .9rem;
+}
+
+.music-or {
+  position: relative;
+  text-align: center;
+}
+
+.music-or::before {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: var(--line);
+  content: "";
+}
+
+.music-or span {
+  position: relative;
+  padding: 0 12px;
+  background: var(--paper);
+  color: var(--muted);
+  font-size: .76rem;
+  font-weight: 800;
+}
+
+.current-music-file {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.music-upload-progress {
+  padding: 14px 16px;
+  border: 1px solid #9fd9f2;
+  border-radius: 10px;
+  background: #eef9fe;
+}
+
+.music-upload-progress-track {
+  overflow: hidden;
+  height: 12px;
+  border-radius: 999px;
+  background: #d3e8f1;
+}
+
+.music-upload-progress-track span {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--blue);
+  transition: width .18s ease;
+}
+
+.music-upload-progress p {
+  margin: 9px 0 0;
+  color: var(--blue-dark);
+  font-size: .88rem;
+  font-weight: 700;
+}
+
+.music-form button:disabled {
+  cursor: wait;
+  opacity: .65;
+}
+
+@media (max-width: 760px) {
+  .music-admin-card {
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: 12px;
+    padding: 16px;
+  }
+
+  .music-order {
+    width: 40px;
+    height: 40px;
+  }
+
+  .professional-admin-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .professional-admin-card {
+    grid-template-columns: 60px 1fr;
+    padding: 17px;
+  }
+
+  .professional-admin-avatar {
+    width: 56px;
+    height: 56px;
+  }
+}

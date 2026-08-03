@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% block title %}Profissionais — Painel editorial{% endblock %}
+{% block content %}
+<section class="section container">
+  <div class="section-title">
+    <div>
+      <p class="eyebrow">Painel editorial</p>
+      <h1>Profissionais e serviços</h1>
+      <p class="dashboard-intro">Escolha uma editoria para atualizar os dados exibidos no site.</p>
+    </div>
+    <div>
+      <a class="button" href="{{ url_for('admin_professional_create') }}">+ Novo profissional</a>
+      <a class="button ghost" href="{{ url_for('admin_dashboard') }}">← Voltar ao painel</a>
+    </div>
+  </div>
+
+  <div class="professional-admin-grid">
+    {% for professional in professionals %}
+    <article class="professional-admin-card">
+      {% if professional.image_data %}
+      <img class="professional-admin-photo" src="{{ url_for('professional_photo', professional_id=professional.id) }}" alt="Foto de {{ professional.name }}">
+      {% else %}
+      <div class="professional-admin-avatar">{{ professional.name[0] }}</div>
+      {% endif %}
+      <div>
+        <span class="tag">{{ professional.category }}</span>
+        {% if professional.featured %}<span class="featured-admin-badge">Em destaque</span>{% endif %}
+        <h2>{{ professional.name }}</h2>
+        <p>{{ professional.role }}</p>
+        <p><strong>Horário:</strong> {{ professional.hours }}</p>
+        {% if professional.featured and professional.featured_reason %}
+        <p class="featured-admin-reason"><strong>No que se destacou:</strong> {{ professional.featured_reason }}</p>
+        {% endif %}
+        <div class="professional-admin-actions">
+          <a class="button" href="{{ url_for('admin_professional_edit', professional_id=professional.id) }}">Editar dados</a>
+          {% if not professional.featured %}
+          <a class="button ghost" href="{{ url_for('admin_professional_edit', professional_id=professional.id) }}#destaque">Selecionar destaque</a>
+          {% endif %}
+          <form method="post" action="{{ url_for('admin_professional_delete', professional_id=professional.id) }}" data-confirm data-confirm-message="Tem certeza que deseja excluir este profissional?">
+            <button class="button danger" type="submit">Excluir</button>
+          </form>
+        </div>
+      </div>
+    </article>
+    {% else %}
+    <p>Nenhum profissional cadastrado.</p>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

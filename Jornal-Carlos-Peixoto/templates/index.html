@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="hero container">
+  <p class="eyebrow">Destaque do dia</p>
+  {% if featured %}
+  <a class="hero-card" href="{{ url_for('news_detail', news_id=featured.id) }}">
+    <div>
+      <span class="tag">{{ featured.category }}</span>
+      <h1>{{ featured.title }}</h1>
+      <p>{{ featured.summary }}</p>
+      <span class="read-more">Leia a reportagem →</span>
+    </div>
+  </a>
+  {% endif %}
+</section>
+
+<section class="section container">
+  <div class="section-title">
+    <div><p class="eyebrow">Últimas notícias</p><h2>O que você precisa saber hoje</h2></div>
+  </div>
+  <div class="news-grid">
+    {% for item in news %}
+    <article class="news-card">
+      {% if item.image %}
+      <img src="{{ url_for('uploaded_file', news_id=item.id) }}" alt="Imagem da notícia {{ item.title }}">
+      {% else %}
+      <div class="placeholder">JCP</div>
+      {% endif %}
+      <div class="card-body">
+        <span class="tag">{{ item.category }}</span>
+        <h3><a href="{{ url_for('news_detail', news_id=item.id) }}">{{ item.title }}</a></h3>
+        <p>{{ item.summary }}</p>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+
+{% if journalist %}
+<section class="journalist">
+  <div class="container journalist-grid">
+    {% if journalist.image_data %}
+    <img class="journalist-photo" src="{{ url_for('professional_photo', professional_id=journalist.id) }}" alt="Foto de {{ journalist.name }}">
+    {% else %}
+    <img src="{{ url_for('static', filename='img/icone.png') }}" alt="Marca do Jornal Carlos Peixoto">
+    {% endif %}
+    <div>
+      <p class="eyebrow">Área do jornalista</p>
+      <h2>{{ journalist.name }}</h2>
+      <p class="lead">{{ journalist.role }} — {{ journalist.hours }}</p>
+      {% if journalist.featured and journalist.featured_reason %}
+      <p class="journalist-featured-reason"><strong>No que se destacou:</strong> {{ journalist.featured_reason }}</p>
+      {% endif %}
+      <div class="chips">
+        {% for section in journalist.sections.split('|') %}<span>{{ section }}</span>{% endfor %}
+      </div>
+    </div>
+  </div>
+</section>
+{% endif %}
+{% endblock %}

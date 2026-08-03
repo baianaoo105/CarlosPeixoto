@@ -1,0 +1,150 @@
+.chat-subject {
+  margin: 24px 0;
+  padding: 18px 20px;
+  border-left: 4px solid var(--blue);
+  border-radius: 0 12px 12px 0;
+  background: var(--paper);
+}
+
+.chat-subject span {
+  color: var(--blue-dark);
+  font-size: .74rem;
+  font-weight: bold;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.chat-subject h2 {
+  margin: 3px 0;
+  font-size: 1.3rem;
+}
+
+.chat-subject p {
+  margin: 3px 0 0;
+  color: var(--muted);
+  white-space: pre-wrap;
+}
+
+.chat-form .hint {
+  display: block;
+  margin-top: 6px;
+}
+
+.chat-attachments {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+  margin: 10px 0;
+}
+
+.chat-attachments a {
+  display: block;
+}
+
+.chat-attachments img {
+  width: 100%;
+  height: 105px;
+  border-radius: 9px;
+  object-fit: cover;
+  transition: transform .2s;
+}
+
+.chat-attachments a:hover img {
+  transform: scale(1.03);
+}
+
+.conversation-person {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--blue-dark);
+  font-size: .76rem;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.conversation-card strong {
+  display: block;
+}
+
+.conversation-card-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.conversation-card-actions {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.conversation-card-actions time {
+  color: var(--muted);
+  font-size: .82rem;
+}
+
+.conversation-card-actions form {
+  margin: 0;
+}
+
+.conversation-card-actions button {
+  padding: 7px 10px;
+  border: 1px solid var(--red);
+  border-radius: 7px;
+  background: #fff;
+  color: var(--red);
+  font: inherit;
+  font-size: .78rem;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.conversation-card-actions button:hover {
+  background: var(--red);
+  color: #fff;
+}
+
+.chat-message-admin-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.chat-message-admin-actions form {
+  margin: 0;
+}
+
+.chat-message-admin-actions button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--red);
+  font: inherit;
+  font-size: .74rem;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.chat-message-admin-actions button:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 560px) {
+  .chat-attachments {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .chat-attachments img {
+    height: 95px;
+  }
+
+  .conversation-card-actions {
+    width: 100%;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}

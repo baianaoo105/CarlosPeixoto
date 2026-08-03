@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title %}Entrar no painel{% endblock %}
+{% block content %}
+<section class="form-page container">
+  <form method="post" class="panel compact">
+    <p class="eyebrow">Área restrita</p>
+    <h1>Painel editorial</h1>
+    <label>Senha
+      <input type="password" name="password" required autofocus autocomplete="current-password">
+    </label>
+    <button class="button" type="submit">Entrar</button>
+  </form>
+</section>
+{% endblock %}
