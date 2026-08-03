@@ -1,14 +1,19 @@
 import asyncio
+import hashlib
 import json
 import logging
 import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
 import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-from urllib.parse import urljoin
-from urllib.parse import urlencode, urlparse
+from urllib.parse import urljoin, urlparse
 from urllib.request import Request, urlopen
 
 import aiohttp
@@ -21,6 +26,9 @@ from yt_dlp.utils import DownloadError
 
 
 BASE_DIR = Path(__file__).resolve().parent
+BOT_AUDIO_LIMIT = 50 * 1024 * 1024
+BOT_AUDIO_CHUNK_SIZE = 3 * 1024 * 1024
+SPOTIFY_PLAYLIST_LIMIT = 25
 load_dotenv(BASE_DIR / ".env")
 
 logging.basicConfig(
@@ -103,6 +111,16 @@ class Track:
     text_channel_id: int
     direct_stream: bool = False
     announce_playback: bool = True
+    display_url: str | None = None
+
+
+@dataclass(slots=True)
+class SpotifySelection:
+    tracks: list[Track]
+    source_url: str
+    entity_type: str
+    name: str
+    thumbnail: str | None
 
 
 def format_duration(seconds: int | None) -> str:
@@ -115,30 +133,240 @@ def format_duration(seconds: int | None) -> str:
     return f"{minute:d}:{second:02d}"
 
 
-def spotify_search_query(url: str) -> str:
-    endpoint = "https://open.spotify.com/oembed?" + urlencode({"url": url})
-    request = Request(endpoint, headers={"User-Agent": "BOT-PEIXOTO/1.0"})
-    try:
-        with urlopen(request, timeout=15) as response:
-            payload = json.load(response)
-    except Exception as error:
-        raise ValueError("Não consegui identificar esta música do Spotify.") from error
-    title = str(payload.get("title", "")).strip()
-    if not title:
-        raise ValueError("O link do Spotify não informou o título da música.")
-    return f"{title} áudio oficial"
+def format_wait(seconds: int | None) -> str:
+    if seconds is None:
+        return "Não disponível"
+    if seconds <= 0:
+        return "Vai tocar agora"
+    return format_duration(seconds)
 
 
-def normalize_music_query(query: str) -> str:
-    parsed = urlparse(query)
+def track_added_embed(
+    track: Track,
+    position: int,
+    estimated_wait: int | None,
+    requester: Any,
+) -> discord.Embed:
+    display_url = track.display_url or track.webpage_url
+    escaped_title = discord.utils.escape_markdown(track.title)
+    track_value = (
+        f"[{escaped_title}]({display_url})"
+        if display_url.startswith(("http://", "https://"))
+        else escaped_title
+    )
+    embed = discord.Embed(
+        title="🎵 Música adicionada",
+        color=discord.Color.from_rgb(35, 40, 49),
+    )
+    embed.add_field(name="Faixa", value=track_value[:1024], inline=False)
+    embed.add_field(
+        name="Estimativa até tocar",
+        value=format_wait(estimated_wait),
+        inline=True,
+    )
+    embed.add_field(
+        name="Duração da faixa",
+        value=format_duration(track.duration),
+        inline=True,
+    )
+    embed.add_field(name="Posição na fila", value=str(position), inline=True)
+    if track.thumbnail and track.thumbnail.startswith(("http://", "https://")):
+        embed.set_thumbnail(url=track.thumbnail)
+    avatar = getattr(getattr(requester, "display_avatar", None), "url", None)
+    embed.set_footer(
+        text=f"Solicitado por {requester.display_name} • BOT PEIXOTO",
+        icon_url=avatar,
+    )
+    return embed
+
+
+def playlist_added_embed(
+    selection: SpotifySelection,
+    added_count: int,
+    first_position: int,
+    last_position: int,
+    estimated_wait: int | None,
+    requester: Any,
+) -> discord.Embed:
+    escaped_name = discord.utils.escape_markdown(selection.name)
+    embed = discord.Embed(
+        title="🎶 Playlist adicionada",
+        description=f"[{escaped_name}]({selection.source_url})",
+        color=discord.Color.from_rgb(35, 40, 49),
+    )
+    embed.add_field(name="Faixas adicionadas", value=str(added_count), inline=True)
+    embed.add_field(
+        name="Posições na fila",
+        value=(
+            str(first_position)
+            if first_position == last_position
+            else f"{first_position}–{last_position}"
+        ),
+        inline=True,
+    )
+    embed.add_field(
+        name="Primeira faixa toca em",
+        value=format_wait(estimated_wait),
+        inline=True,
+    )
+    if selection.thumbnail and selection.thumbnail.startswith(("http://", "https://")):
+        embed.set_thumbnail(url=selection.thumbnail)
+    avatar = getattr(getattr(requester, "display_avatar", None), "url", None)
+    embed.set_footer(
+        text=f"Solicitado por {requester.display_name} • BOT PEIXOTO",
+        icon_url=avatar,
+    )
+    return embed
+
+
+def spotify_hostname(hostname: str) -> bool:
+    return (
+        hostname == "open.spotify.com"
+        or hostname.endswith(".spotify.com")
+        or hostname in {"spotify.link", "spoti.fi"}
+    )
+
+
+def is_spotify_url(value: str) -> bool:
+    return spotify_hostname((urlparse(value).hostname or "").lower())
+
+
+def canonical_spotify_url(url: str) -> str:
+    parsed = urlparse(url)
     hostname = (parsed.hostname or "").lower()
-    if hostname == "open.spotify.com" or hostname.endswith(".spotify.com"):
-        return spotify_search_query(query)
-    return query
+    if hostname in {"spotify.link", "spoti.fi"}:
+        request = Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urlopen(request, timeout=15) as response:
+            url = response.geturl()
+        parsed = urlparse(url)
+
+    parts = [part for part in parsed.path.split("/") if part]
+    if parts and parts[0].lower().startswith("intl-"):
+        parts = parts[1:]
+    supported = {"track", "album", "playlist", "artist", "episode", "show"}
+    for index, part in enumerate(parts[:-1]):
+        if part.lower() in supported:
+            item_id = parts[index + 1].split("?", 1)[0]
+            if item_id:
+                return f"https://open.spotify.com/{part.lower()}/{item_id}"
+    return url
+
+
+def spotify_entity_type(url: str) -> str:
+    parts = [part for part in urlparse(url).path.split("/") if part]
+    return parts[0].lower() if parts else "track"
+
+
+def spotify_item_duration(value: Any) -> int | None:
+    try:
+        seconds = int(float(value))
+        return seconds if seconds > 0 else None
+    except (TypeError, ValueError):
+        return None
+
+
+def extract_spotify_selection(
+    url: str,
+    requester: str,
+    text_channel_id: int,
+    limit: int = SPOTIFY_PLAYLIST_LIMIT,
+) -> SpotifySelection:
+    try:
+        canonical_url = canonical_spotify_url(url)
+    except Exception as error:
+        raise ValueError("Não consegui abrir este link do Spotify.") from error
+
+    entity_type = spotify_entity_type(canonical_url)
+    working_directory = Path(tempfile.mkdtemp(prefix="bot-peixoto-spotify-"))
+    save_file = working_directory / "selecao.spotdl"
+    command = [
+        sys.executable,
+        "-m",
+        "spotdl",
+        "save",
+        canonical_url,
+        "--save-file",
+        str(save_file),
+    ]
+    try:
+        result = subprocess.run(
+            command,
+            cwd=working_directory,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=240,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            check=False,
+        )
+        if result.returncode != 0 or not save_file.exists():
+            details = (result.stderr or result.stdout or "").strip().splitlines()
+            detail = details[-1][:300] if details else "resposta vazia"
+            if "No module named spotdl" in detail:
+                raise ValueError(
+                    "O suporte ao Spotify ainda não foi instalado. Atualize requirements.txt."
+                )
+            raise ValueError(f"Não consegui ler o link do Spotify: {detail}")
+        payload = json.loads(save_file.read_text(encoding="utf-8"))
+    except subprocess.TimeoutExpired as error:
+        raise ValueError("O Spotify demorou demais para responder. Tente novamente.") from error
+    except json.JSONDecodeError as error:
+        raise ValueError("O Spotify retornou dados que não puderam ser lidos.") from error
+    finally:
+        shutil.rmtree(working_directory, ignore_errors=True)
+
+    items = payload if isinstance(payload, list) else [payload]
+    tracks: list[Track] = []
+    for item in items[:max(1, limit)]:
+        if not isinstance(item, dict):
+            continue
+        title = str(item.get("name") or item.get("title") or "").strip()
+        artists_value = item.get("artists")
+        if isinstance(artists_value, list):
+            artists = ", ".join(str(value) for value in artists_value if value)
+        else:
+            artists = str(item.get("artist") or artists_value or "").strip()
+        if not title:
+            continue
+        search_query = " - ".join(value for value in (artists, title) if value)
+        search_query = f"ytsearch1:{search_query} áudio oficial"
+        display_url = str(item.get("url") or canonical_url)
+        tracks.append(
+            Track(
+                title=f"{title} — {artists}" if artists else title,
+                webpage_url=search_query,
+                thumbnail=str(item.get("cover_url") or "") or None,
+                duration=spotify_item_duration(item.get("duration")),
+                requester=requester,
+                text_channel_id=text_channel_id,
+                display_url=display_url,
+            )
+        )
+    if not tracks:
+        raise ValueError("Nenhuma faixa disponível foi encontrada nesse link do Spotify.")
+
+    first_item = items[0] if items and isinstance(items[0], dict) else {}
+    selection_name = str(
+        first_item.get("list_name")
+        or first_item.get("album_name")
+        or first_item.get("name")
+        or "Seleção do Spotify"
+    )
+    return SpotifySelection(
+        tracks=tracks,
+        source_url=canonical_url,
+        entity_type=entity_type,
+        name=selection_name,
+        thumbnail=tracks[0].thumbnail,
+    )
 
 
 def extract_track(query: str, requester: str, text_channel_id: int) -> Track:
-    query = normalize_music_query(query)
+    if is_spotify_url(query):
+        return extract_spotify_selection(
+            query, requester, text_channel_id, limit=1
+        ).tracks[0]
     options = {
         "format": "bestaudio/best",
         "default_search": "ytsearch1",
@@ -164,6 +392,7 @@ def extract_track(query: str, requester: str, text_channel_id: int) -> Track:
         duration=info.get("duration"),
         requester=requester,
         text_channel_id=text_channel_id,
+        display_url=webpage_url,
     )
 
 
@@ -187,6 +416,38 @@ def extract_stream_url(webpage_url: str) -> str:
     return stream_url
 
 
+def download_track_audio(webpage_url: str) -> tuple[str, Path]:
+    working_directory = Path(tempfile.mkdtemp(prefix="bot-peixoto-musica-"))
+    options = {
+        "format": "bestaudio/best",
+        "noplaylist": True,
+        "quiet": True,
+        "no_warnings": True,
+        "outtmpl": str(working_directory / "audio.%(ext)s"),
+        "js_runtimes": {"deno": {}, "node": {}},
+    }
+    try:
+        with YoutubeDL(options) as downloader:
+            info = downloader.extract_info(webpage_url, download=True)
+            if info and "entries" in info:
+                entries = [entry for entry in info.get("entries", []) if entry]
+                info = entries[0] if entries else None
+            expected = Path(downloader.prepare_filename(info)) if info else None
+        if expected and expected.exists():
+            return str(expected), working_directory
+        candidates = [
+            item
+            for item in working_directory.iterdir()
+            if item.is_file() and item.suffix not in {".part", ".ytdl"}
+        ]
+        if candidates:
+            return str(candidates[0]), working_directory
+        raise ValueError("A música foi encontrada, mas o áudio não pôde ser baixado.")
+    except Exception:
+        shutil.rmtree(working_directory, ignore_errors=True)
+        raise
+
+
 class GuildPlayer:
     def __init__(self, bot: "PeixotoBot", guild: discord.Guild):
         self.bot = bot
@@ -197,9 +458,17 @@ class GuildPlayer:
             self._player_loop(), name=f"player-{guild.id}"
         )
 
-    async def enqueue(self, track: Track) -> int:
+    async def enqueue(self, track: Track) -> tuple[int, int | None]:
+        pending = self.pending_tracks()
+        has_wait = self.current is not None or bool(pending)
+        known_durations = [
+            item.duration
+            for item in ([self.current] if self.current else []) + pending
+            if item and item.duration
+        ]
+        estimated_wait = sum(known_durations) if known_durations else (None if has_wait else 0)
         self.queue.put_nowait(track)
-        return self.queue.qsize()
+        return self.queue.qsize(), estimated_wait
 
     def pending_tracks(self) -> list[Track]:
         return list(self.queue._queue)
@@ -229,13 +498,21 @@ class GuildPlayer:
         channel = self.bot.get_channel(track.text_channel_id)
         if channel is None:
             return
-        embed = discord.Embed(
-            title="Tocando agora",
-            description=f"[{track.title}]({track.webpage_url})",
-            color=discord.Color.from_rgb(53, 174, 232),
+        display_url = track.display_url or track.webpage_url
+        linked_title = discord.utils.escape_markdown(track.title)
+        description = (
+            f"[{linked_title}]({display_url})"
+            if display_url.startswith(("http://", "https://"))
+            else linked_title
         )
-        embed.add_field(name="Duração", value=format_duration(track.duration))
-        embed.add_field(name="Pedido por", value=track.requester)
+        embed = discord.Embed(
+            title="▶️ Tocando agora",
+            description=description,
+            color=discord.Color.from_rgb(36, 42, 52),
+        )
+        embed.add_field(name="Duração", value=format_duration(track.duration), inline=True)
+        embed.add_field(name="Solicitado por", value=track.requester, inline=True)
+        embed.set_footer(text="BOT PEIXOTO • Jornal Carlos Peixoto")
         if track.thumbnail:
             embed.set_thumbnail(url=track.thumbnail)
         try:
@@ -275,6 +552,7 @@ class GuildPlayer:
                     continue
 
             self.current = track
+            temporary_directory: Path | None = None
             try:
                 voice = self.guild.voice_client
                 if not voice or not voice.is_connected():
@@ -283,19 +561,18 @@ class GuildPlayer:
                     )
                     continue
 
-                stream_url = track.webpage_url
-                if not track.direct_stream:
-                    stream_url = await asyncio.to_thread(
-                        extract_stream_url, track.webpage_url
+                if track.direct_stream:
+                    stream_url = await self.bot.download_uploaded_audio(
+                        track.webpage_url
+                    )
+                else:
+                    stream_url, temporary_directory = await asyncio.to_thread(
+                        download_track_audio, track.webpage_url
                     )
                 source = discord.PCMVolumeTransformer(
                     discord.FFmpegPCMAudio(
                         stream_url,
                         executable=self.bot.settings.ffmpeg_path,
-                        before_options=(
-                            "-reconnect 1 -reconnect_streamed 1 "
-                            "-reconnect_delay_max 5"
-                        ),
                         options="-vn -loglevel warning",
                     ),
                     volume=0.55,
@@ -326,8 +603,16 @@ class GuildPlayer:
                 await self._send_playback_error(track, str(error))
             except Exception as error:
                 logger.exception("Erro durante a reproducao")
-                await self._send_playback_error(track, "ocorreu um erro inesperado.")
+                detail = str(error).strip()
+                message = (
+                    f"erro técnico: {detail[:220]}"
+                    if detail
+                    else f"erro técnico do tipo {type(error).__name__}."
+                )
+                await self._send_playback_error(track, message)
             finally:
+                if temporary_directory:
+                    shutil.rmtree(temporary_directory, ignore_errors=True)
                 self.current = None
                 if from_queue:
                     self.queue.task_done()
@@ -347,6 +632,10 @@ class PeixotoBot(commands.Bot):
         self.music_index = 0
         self.music_refreshed_at = 0.0
         self.music_lock = asyncio.Lock()
+        self.audio_download_lock = asyncio.Lock()
+        self.audio_cache_directory = Path(
+            tempfile.mkdtemp(prefix="bot-peixoto-programacao-")
+        )
 
     async def setup_hook(self) -> None:
         timeout = aiohttp.ClientTimeout(total=20)
@@ -388,6 +677,7 @@ class PeixotoBot(commands.Bot):
         self.players.clear()
         if self.http_session and not self.http_session.closed:
             await self.http_session.close()
+        shutil.rmtree(self.audio_cache_directory, ignore_errors=True)
         await super().close()
 
     def player_for(self, guild: discord.Guild) -> GuildPlayer:
@@ -396,6 +686,67 @@ class PeixotoBot(commands.Bot):
             player = GuildPlayer(self, guild)
             self.players[guild.id] = player
         return player
+
+    async def download_uploaded_audio(self, audio_url: str) -> str:
+        if not self.http_session:
+            raise ValueError("A conexão do bot com o site ainda não está pronta.")
+        cache_name = hashlib.sha256(audio_url.encode("utf-8")).hexdigest() + ".audio"
+        destination = self.audio_cache_directory / cache_name
+        if destination.exists() and destination.stat().st_size:
+            return str(destination)
+
+        async with self.audio_download_lock:
+            if destination.exists() and destination.stat().st_size:
+                return str(destination)
+            temporary = destination.with_suffix(".part")
+            downloaded = 0
+            total_size: int | None = None
+            try:
+                with temporary.open("wb") as output:
+                    while total_size is None or downloaded < total_size:
+                        range_end = downloaded + BOT_AUDIO_CHUNK_SIZE - 1
+                        headers = {"Range": f"bytes={downloaded}-{range_end}"}
+                        async with self.http_session.get(
+                            audio_url, headers=headers
+                        ) as response:
+                            if response.status not in {200, 206}:
+                                response.raise_for_status()
+                            payload = await response.read()
+                            if not payload:
+                                raise ValueError("O site retornou uma parte vazia do áudio.")
+
+                            if response.status == 206:
+                                content_range = response.headers.get("Content-Range", "")
+                                match = re.fullmatch(
+                                    r"bytes (\d+)-(\d+)/(\d+)", content_range
+                                )
+                                if not match:
+                                    raise ValueError("O site retornou uma faixa de áudio inválida.")
+                                range_start, range_finish, declared_total = map(
+                                    int, match.groups()
+                                )
+                                if range_start != downloaded:
+                                    raise ValueError("As partes do áudio chegaram fora de ordem.")
+                                if range_finish - range_start + 1 != len(payload):
+                                    raise ValueError("Uma parte do áudio chegou incompleta.")
+                                total_size = declared_total
+                            else:
+                                total_size = len(payload)
+
+                            if total_size > BOT_AUDIO_LIMIT:
+                                raise ValueError("O áudio do site ultrapassa o limite de 50 MB.")
+                            output.write(payload)
+                            downloaded += len(payload)
+                            if response.status == 200:
+                                break
+
+                if total_size is None or downloaded != total_size:
+                    raise ValueError("O download do áudio do site ficou incompleto.")
+                temporary.replace(destination)
+                return str(destination)
+            except Exception:
+                temporary.unlink(missing_ok=True)
+                raise
 
     async def _fetch_music_items(self) -> list[dict[str, Any]]:
         if not self.http_session:
@@ -675,10 +1026,35 @@ async def play(interaction: discord.Interaction, busca: app_commands.Range[str, 
         player = bot.player_for(interaction.guild)
         if player.queue.full():
             raise ValueError("A fila está cheia. Use /parar para limpá-la.")
-        track = await asyncio.to_thread(
-            extract_track, str(busca), interaction.user.display_name, interaction.channel_id
-        )
-        position = await player.enqueue(track)
+
+        query = str(busca).strip()
+        if is_spotify_url(query):
+            available = player.queue.maxsize - player.queue.qsize()
+            selection = await asyncio.to_thread(
+                extract_spotify_selection,
+                query,
+                interaction.user.display_name,
+                interaction.channel_id,
+                min(SPOTIFY_PLAYLIST_LIMIT, available),
+            )
+            added: list[tuple[Track, int, int | None]] = []
+            for spotify_track in selection.tracks:
+                if player.queue.full():
+                    break
+                position, estimated_wait = await player.enqueue(spotify_track)
+                added.append((spotify_track, position, estimated_wait))
+            if not added:
+                raise ValueError("Não havia espaço disponível para adicionar a seleção.")
+        else:
+            track = await asyncio.to_thread(
+                extract_track,
+                query,
+                interaction.user.display_name,
+                interaction.channel_id,
+            )
+            position, estimated_wait = await player.enqueue(track)
+            added = [(track, position, estimated_wait)]
+
         voice = interaction.guild.voice_client
         if (
             voice
@@ -687,11 +1063,31 @@ async def play(interaction: discord.Interaction, busca: app_commands.Range[str, 
             and (voice.is_playing() or voice.is_paused())
         ):
             voice.stop()
-        await interaction.followup.send(
-            f"🎵 **{track.title}** adicionada à fila (posição {position})."
-        )
+
+        if is_spotify_url(query) and len(added) > 1:
+            _first_track, first_position, first_wait = added[0]
+            _last_track, last_position, _last_wait = added[-1]
+            await interaction.followup.send(
+                embed=playlist_added_embed(
+                    selection,
+                    len(added),
+                    first_position,
+                    last_position,
+                    first_wait,
+                    interaction.user,
+                )
+            )
+        else:
+            track, position, estimated_wait = added[0]
+            await interaction.followup.send(
+                embed=track_added_embed(
+                    track, position, estimated_wait, interaction.user
+                )
+            )
     except (DownloadError, ValueError) as error:
         await interaction.followup.send(f"❌ {error}", ephemeral=True)
+    except asyncio.QueueFull:
+        await interaction.followup.send("❌ A fila ficou cheia.", ephemeral=True)
     except discord.ClientException as error:
         await interaction.followup.send(f"❌ Não consegui entrar no canal: {error}", ephemeral=True)
 

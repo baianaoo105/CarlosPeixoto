@@ -1,20 +1,24 @@
 import os
+import math
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from pathlib import Path
 from urllib.parse import urlparse
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from flask import (Flask, Response, abort, flash, jsonify, redirect,
                    render_template, request, session, url_for)
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func, inspect, text
+from sqlalchemy.orm import defer
 from werkzeug.utils import secure_filename
 
 BASE_DIR = Path(__file__).resolve().parent
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp", "gif"}
 MAX_IMAGE_SIZE = 8 * 1024 * 1024
-MAX_AUDIO_SIZE = 4 * 1024 * 1024
+MAX_AUDIO_SIZE = 50 * 1024 * 1024
+AUDIO_UPLOAD_CHUNK_SIZE = 3 * 1024 * 1024
+AUDIO_RESPONSE_CHUNK_SIZE = 3 * 1024 * 1024
 ALLOWED_AUDIO_EXTENSIONS = {"mp3", "m4a", "ogg", "opus", "wav", "webm", "aac", "flac"}
 ALLOWED_AUDIO_MIMETYPES = {
     "audio/aac",
@@ -135,6 +139,22 @@ class MusicTrack(db.Model):
     updated_at = db.Column(
         db.DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now
     )
+
+
+class MusicUploadChunk(db.Model):
+    __tablename__ = "music_upload_chunks"
+    __table_args__ = (
+        db.UniqueConstraint("upload_token", "chunk_index", name="uq_music_upload_chunk"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    upload_token = db.Column(db.String(36), nullable=False, index=True)
+    chunk_index = db.Column(db.Integer, nullable=False)
+    total_chunks = db.Column(db.Integer, nullable=False)
+    filename = db.Column(db.String(255), nullable=False)
+    mimetype = db.Column(db.String(100), nullable=False)
+    data = db.Column(db.LargeBinary, nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
 
 
 class Conversation(db.Model):
@@ -346,21 +366,80 @@ def save_image(file):
     }
 
 
+def validate_audio_metadata(filename, mimetype):
+    original = secure_filename(filename or "")
+    if not original:
+        raise ValueError("O arquivo de áudio precisa ter um nome válido.")
+    extension = original.rsplit(".", 1)[-1].lower() if "." in original else ""
+    if extension not in ALLOWED_AUDIO_EXTENSIONS:
+        raise ValueError(
+            "Formato inválido. Use MP3, M4A, OGG, OPUS, WAV, WEBM, AAC ou FLAC."
+        )
+    if (
+        mimetype
+        and mimetype != "application/octet-stream"
+        and mimetype not in ALLOWED_AUDIO_MIMETYPES
+    ):
+        raise ValueError("O arquivo enviado não foi reconhecido como áudio.")
+    return original
+
+
 def save_audio(file):
     if not file or not file.filename:
         return None
-    original = secure_filename(file.filename)
-    extension = original.rsplit(".", 1)[-1].lower() if "." in original else ""
-    if extension not in ALLOWED_AUDIO_EXTENSIONS:
-        raise ValueError("Formato inválido. Use MP3, M4A, OGG, OPUS, WAV, WEBM, AAC ou FLAC.")
-    if file.mimetype and file.mimetype not in ALLOWED_AUDIO_MIMETYPES:
-        raise ValueError("O arquivo enviado não foi reconhecido como áudio.")
+    original = validate_audio_metadata(file.filename, file.mimetype)
     data = file.read(MAX_AUDIO_SIZE + 1)
     if len(data) > MAX_AUDIO_SIZE:
-        raise ValueError("O áudio ultrapassa o limite de 4 MB da hospedagem.")
+        raise ValueError("O áudio ultrapassa o limite de 50 MB.")
     return {
         "audio_filename": original,
         "audio_mimetype": file.mimetype or "application/octet-stream",
+        "audio_data": data,
+    }
+
+
+def normalized_upload_token(value):
+    try:
+        return str(UUID((value or "").strip()))
+    except (AttributeError, ValueError) as error:
+        raise ValueError("O identificador do envio de áudio é inválido.") from error
+
+
+def consume_audio_upload(upload_token):
+    token = normalized_upload_token(upload_token)
+    chunks = db.session.execute(
+        db.select(MusicUploadChunk)
+        .where(MusicUploadChunk.upload_token == token)
+        .order_by(MusicUploadChunk.chunk_index.asc())
+    ).scalars().all()
+    if not chunks:
+        raise ValueError("O envio do áudio não foi encontrado. Selecione o arquivo novamente.")
+
+    total_chunks = chunks[0].total_chunks
+    expected_indexes = list(range(total_chunks))
+    if len(chunks) != total_chunks or [item.chunk_index for item in chunks] != expected_indexes:
+        raise ValueError("O envio do áudio ficou incompleto. Selecione o arquivo novamente.")
+    if any(
+        item.total_chunks != total_chunks
+        or item.filename != chunks[0].filename
+        or item.mimetype != chunks[0].mimetype
+        for item in chunks
+    ):
+        raise ValueError("As partes do áudio não correspondem ao mesmo arquivo.")
+
+    original = validate_audio_metadata(chunks[0].filename, chunks[0].mimetype)
+    size = sum(len(item.data) for item in chunks)
+    if size > MAX_AUDIO_SIZE:
+        raise ValueError("O áudio ultrapassa o limite de 50 MB.")
+    if size == 0:
+        raise ValueError("O arquivo de áudio está vazio.")
+
+    data = b"".join(item.data for item in chunks)
+    for item in chunks:
+        db.session.delete(item)
+    return {
+        "audio_filename": original,
+        "audio_mimetype": chunks[0].mimetype or "application/octet-stream",
         "audio_data": data,
     }
 
@@ -490,6 +569,7 @@ def news_api():
 def music_api():
     items = db.session.execute(
         db.select(MusicTrack)
+        .options(defer(MusicTrack.audio_data))
         .where(MusicTrack.enabled.is_(True))
         .order_by(MusicTrack.position.asc(), MusicTrack.id.asc())
     ).scalars().all()
@@ -500,11 +580,15 @@ def music_api():
                 {
                     "id": item.id,
                     "title": item.title,
-                    "source_type": "upload" if item.audio_data else "link",
+                    "source_type": "upload" if item.audio_filename else "link",
                     "source_url": item.source_url,
                     "audio_url": (
-                        url_for("music_audio", music_id=item.id)
-                        if item.audio_data
+                        url_for(
+                            "music_audio",
+                            music_id=item.id,
+                            v=int(item.updated_at.timestamp()),
+                        )
+                        if item.audio_filename
                         else None
                     ),
                     "position": item.position,
@@ -666,9 +750,9 @@ def admin_professionals():
 @admin_required
 def admin_music():
     tracks = db.session.execute(
-        db.select(MusicTrack).order_by(
-            MusicTrack.position.asc(), MusicTrack.id.asc()
-        )
+        db.select(MusicTrack)
+        .options(defer(MusicTrack.audio_data))
+        .order_by(MusicTrack.position.asc(), MusicTrack.id.asc())
     ).scalars().all()
     return render_template("admin/music.html", tracks=tracks)
 
@@ -676,6 +760,8 @@ def admin_music():
 def music_form_values(track=None):
     title = request.form.get("title", "").strip()
     source_url = request.form.get("source_url", "").strip()
+    upload_token = request.form.get("uploaded_audio_token", "").strip()
+    direct_audio = request.files.get("audio")
     position_text = request.form.get("position", "0").strip() or "0"
     enabled = request.form.get("enabled") == "on"
     try:
@@ -692,9 +778,15 @@ def music_form_values(track=None):
     if source_url and not valid_music_url(source_url):
         raise ValueError("Informe um link começando com http:// ou https://.")
 
-    saved_audio = save_audio(request.files.get("audio"))
-    if source_url and saved_audio:
+    if upload_token and direct_audio and direct_audio.filename:
+        raise ValueError("O formulário recebeu o mesmo áudio de duas formas.")
+    if source_url and (upload_token or (direct_audio and direct_audio.filename)):
         raise ValueError("Escolha somente uma fonte: link ou arquivo de áudio.")
+    saved_audio = (
+        consume_audio_upload(upload_token)
+        if upload_token
+        else save_audio(direct_audio)
+    )
 
     values = {
         "title": title,
@@ -716,6 +808,91 @@ def music_form_values(track=None):
     elif not track or not track.audio_data:
         raise ValueError("Envie um arquivo de áudio ou informe um link de música.")
     return values
+
+
+@app.route("/admin/musica/upload/chunk", methods=["POST"])
+@admin_required
+def admin_music_upload_chunk():
+    try:
+        token = normalized_upload_token(request.form.get("upload_token"))
+        chunk_index = int(request.form.get("chunk_index", ""))
+        total_chunks = int(request.form.get("total_chunks", ""))
+        filename = validate_audio_metadata(
+            request.form.get("filename", ""),
+            request.form.get("mimetype", "").strip(),
+        )
+        mimetype = request.form.get("mimetype", "").strip() or "application/octet-stream"
+        chunk_file = request.files.get("chunk")
+
+        maximum_chunks = math.ceil(MAX_AUDIO_SIZE / AUDIO_UPLOAD_CHUNK_SIZE)
+        if not 1 <= total_chunks <= maximum_chunks:
+            raise ValueError("A quantidade de partes do áudio é inválida.")
+        if not 0 <= chunk_index < total_chunks:
+            raise ValueError("A posição da parte do áudio é inválida.")
+        if not chunk_file:
+            raise ValueError("Uma parte do áudio não foi recebida.")
+
+        data = chunk_file.read(AUDIO_UPLOAD_CHUNK_SIZE + 1)
+        if not data:
+            raise ValueError("Uma parte vazia do áudio foi recebida.")
+        if len(data) > AUDIO_UPLOAD_CHUNK_SIZE:
+            raise ValueError("Uma parte do áudio ultrapassou o tamanho permitido.")
+
+        stale_before = utc_now() - timedelta(hours=2)
+        stale_chunks = db.session.execute(
+            db.select(MusicUploadChunk).where(
+                MusicUploadChunk.created_at < stale_before
+            )
+        ).scalars().all()
+        for stale in stale_chunks:
+            db.session.delete(stale)
+
+        if chunk_index == 0:
+            previous_chunks = db.session.execute(
+                db.select(MusicUploadChunk).where(
+                    MusicUploadChunk.upload_token == token
+                )
+            ).scalars().all()
+            for previous in previous_chunks:
+                db.session.delete(previous)
+            db.session.flush()
+            existing = None
+        else:
+            existing = db.session.execute(
+                db.select(MusicUploadChunk).where(
+                    MusicUploadChunk.upload_token == token,
+                    MusicUploadChunk.chunk_index == chunk_index,
+                )
+            ).scalar_one_or_none()
+
+        if existing:
+            existing.total_chunks = total_chunks
+            existing.filename = filename
+            existing.mimetype = mimetype
+            existing.data = data
+            existing.created_at = utc_now()
+        else:
+            db.session.add(
+                MusicUploadChunk(
+                    upload_token=token,
+                    chunk_index=chunk_index,
+                    total_chunks=total_chunks,
+                    filename=filename,
+                    mimetype=mimetype,
+                    data=data,
+                )
+            )
+        db.session.commit()
+        return jsonify(
+            {
+                "ok": True,
+                "received": chunk_index + 1,
+                "total": total_chunks,
+            }
+        )
+    except (TypeError, ValueError) as error:
+        db.session.rollback()
+        return jsonify({"ok": False, "error": str(error)}), 400
 
 
 @app.route("/admin/musica/nova", methods=["GET", "POST"])
@@ -1110,13 +1287,52 @@ def music_audio(music_id):
     track = db.get_or_404(MusicTrack, music_id)
     if not track.enabled or not track.audio_data:
         abort(404)
+
+    data = bytes(track.audio_data)
+    total_size = len(data)
+    range_header = request.headers.get("Range", "").strip()
+    start = 0
+    requested_end = total_size - 1
+    try:
+        if range_header:
+            if not range_header.lower().startswith("bytes="):
+                raise ValueError
+            first_range = range_header.split("=", 1)[1].split(",", 1)[0].strip()
+            start_text, end_text = first_range.split("-", 1)
+            if start_text:
+                start = int(start_text)
+                requested_end = int(end_text) if end_text else total_size - 1
+            else:
+                suffix_size = int(end_text)
+                if suffix_size <= 0:
+                    raise ValueError
+                start = max(0, total_size - suffix_size)
+                requested_end = total_size - 1
+        if start < 0 or start >= total_size or requested_end < start:
+            raise ValueError
+    except (TypeError, ValueError):
+        response = Response(status=416)
+        response.headers["Content-Range"] = f"bytes */{total_size}"
+        response.headers["Accept-Ranges"] = "bytes"
+        return response
+
+    end = min(
+        requested_end,
+        total_size - 1,
+        start + AUDIO_RESPONSE_CHUNK_SIZE - 1,
+    )
+    payload = data[start:end + 1]
     response = Response(
-        track.audio_data,
+        payload,
+        status=206,
         mimetype=track.audio_mimetype or "application/octet-stream",
     )
     response.headers["Content-Disposition"] = (
         f'inline; filename="{secure_filename(track.audio_filename or "musica")}"'
     )
+    response.headers["Accept-Ranges"] = "bytes"
+    response.headers["Content-Range"] = f"bytes {start}-{end}/{total_size}"
+    response.headers["Content-Length"] = str(len(payload))
     response.headers["Cache-Control"] = "no-store, max-age=0"
     return response
 

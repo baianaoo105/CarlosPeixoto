@@ -26,14 +26,14 @@
       <div class="music-admin-content">
         <div class="music-admin-heading">
           <div>
-            <span class="tag">{{ 'Arquivo enviado' if track.audio_data else 'Link externo' }}</span>
+            <span class="tag">{{ 'Arquivo enviado' if track.audio_filename else 'Link externo' }}</span>
             <span class="music-status {{ 'active' if track.enabled else 'inactive' }}">{{ 'Ativa' if track.enabled else 'Desativada' }}</span>
             <h2>{{ track.title }}</h2>
           </div>
         </div>
         {% if track.source_url %}
         <p class="music-source"><a href="{{ track.source_url }}" target="_blank" rel="noopener noreferrer">{{ track.source_url }}</a></p>
-        {% elif track.audio_data %}
+        {% elif track.audio_filename %}
         <p class="music-source">Arquivo: {{ track.audio_filename }}</p>
         <audio controls preload="none" src="{{ url_for('music_audio', music_id=track.id) }}"></audio>
         {% endif %}

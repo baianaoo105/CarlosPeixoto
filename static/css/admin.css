@@ -304,6 +304,41 @@
   background: #fff;
 }
 
+.music-upload-progress {
+  padding: 14px 16px;
+  border: 1px solid #9fd9f2;
+  border-radius: 10px;
+  background: #eef9fe;
+}
+
+.music-upload-progress-track {
+  overflow: hidden;
+  height: 12px;
+  border-radius: 999px;
+  background: #d3e8f1;
+}
+
+.music-upload-progress-track span {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--blue);
+  transition: width .18s ease;
+}
+
+.music-upload-progress p {
+  margin: 9px 0 0;
+  color: var(--blue-dark);
+  font-size: .88rem;
+  font-weight: 700;
+}
+
+.music-form button:disabled {
+  cursor: wait;
+  opacity: .65;
+}
+
 @media (max-width: 760px) {
   .music-admin-card {
     grid-template-columns: 42px minmax(0, 1fr);

@@ -5,6 +5,7 @@ Portal de notícias em Flask preparado para publicação na Vercel.
 ## Recursos
 
 - API pública de notícias, programação musical pelo painel e projeto separado do BOT PEIXOTO para divulgação automática, comandos de música e reprodução contínua em canal de voz.
+- Cartões visuais de fila no Discord e leitura de faixas, álbuns e playlists do Spotify (até 25 músicas por pedido).
 - Upload de músicas de até 50 MB, com barra de progresso e envio automático em partes compatíveis com a Vercel.
 - Seleção pelo administrador de um profissional em destaque por editoria, com explicação do motivo do destaque.
 - Fundo responsivo em azul-claro visível, combinando com a identidade do jornal.

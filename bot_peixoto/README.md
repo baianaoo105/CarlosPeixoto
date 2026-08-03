@@ -9,7 +9,9 @@ Bot do Discord ligado ao **Jornal Carlos Peixoto**. Ele publica automaticamente 
 - Recupera o último ID pelo histórico do canal para evitar mensagens duplicadas após reinícios.
 - Mostra título, resumo, editoria, fonte, foto e link da notícia.
 - Toca áudio com pesquisa ou link usando yt-dlp e FFmpeg.
+- Reconhece faixas, álbuns e playlists do Spotify com auxílio do spotDL.
 - Mantém uma fila musical separada para cada servidor.
+- Mostra cartões da fila com capa, duração, posição e estimativa para tocar.
 - Entra automaticamente no canal de voz configurado e reconecta se a conexão cair.
 - Repete continuamente a programação musical cadastrada no painel do Jornal.
 - Dá prioridade aos pedidos feitos com `/tocar` e retoma a programação depois.
@@ -25,6 +27,8 @@ Bot do Discord ligado ao **Jornal Carlos Peixoto**. Ele publica automaticamente 
 - `/sair`: desconecta o bot do canal de voz.
 
 Use apenas áudios que você tem autorização para reproduzir e respeite as regras da plataforma de origem.
+
+Cada link de playlist ou álbum do Spotify adiciona no máximo 25 faixas por pedido, preservando espaço para outros usuários. O Spotify fornece os metadados; a reprodução é procurada em uma fonte de áudio compatível.
 
 ## 1. Publicar a conexão no site
 
@@ -103,7 +107,9 @@ Quando aparecer `BOT PEIXOTO conectado`, teste `/tocar` dentro do servidor.
 2. Clique em **Programação musical**.
 3. Clique em **Adicionar música**.
 4. Informe um título e uma ordem de reprodução.
-5. Cole um link ou envie um arquivo de áudio de até 4 MB.
+5. Cole um link ou envie um arquivo de áudio de até 50 MB.
+
+Arquivos maiores são enviados e lidos em partes automaticamente para funcionar na Vercel. Mantenha o navegador aberto até a barra chegar a 100% e aparecer a confirmação de salvamento.
 6. Mantenha a opção **Música ativa** marcada e salve.
 
 Links do SoundCloud e de outras fontes compatíveis são abertos pelo yt-dlp. Um link do Spotify é usado para identificar o título; como o Spotify não fornece o áudio integral ao bot, o BOT PEIXOTO procura uma fonte de áudio compatível para a mesma música.

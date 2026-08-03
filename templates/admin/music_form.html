@@ -2,7 +2,11 @@
 {% block title %}{{ 'Editar música' if track else 'Adicionar música' }} — BOT PEIXOTO{% endblock %}
 {% block content %}
 <section class="form-page container">
-  <form method="post" enctype="multipart/form-data" class="panel music-form">
+  <form method="post" enctype="multipart/form-data" class="panel music-form"
+        data-chunk-upload-url="{{ url_for('admin_music_upload_chunk') }}"
+        data-max-audio-size="52428800"
+        data-chunk-size="3145728">
+    <input type="hidden" name="uploaded_audio_token" value="{{ request.form.get('uploaded_audio_token', '') }}">
     <p class="eyebrow">BOT PEIXOTO</p>
     <h1>{{ 'Editar música da programação' if track else 'Adicionar música à programação' }}</h1>
 
@@ -36,8 +40,15 @@
 
       <label class="wide">Enviar arquivo de áudio
         <input type="file" name="audio" accept="audio/mpeg,audio/mp4,audio/ogg,audio/wav,audio/webm,audio/aac,audio/flac,.mp3,.m4a,.ogg,.opus,.wav,.webm,.aac,.flac">
-        <span class="hint">MP3, M4A, OGG, OPUS, WAV, WEBM, AAC ou FLAC; até 4 MB por arquivo.</span>
+        <span class="hint">MP3, M4A, OGG, OPUS, WAV, WEBM, AAC ou FLAC; até 50 MB por arquivo. O envio é dividido automaticamente em partes seguras.</span>
       </label>
+
+      <div class="wide music-upload-progress" hidden aria-live="polite">
+        <div class="music-upload-progress-track" aria-hidden="true">
+          <span></span>
+        </div>
+        <p>Preparando o envio do áudio…</p>
+      </div>
 
       {% if track and track.audio_data %}
       <div class="wide current-music-file">

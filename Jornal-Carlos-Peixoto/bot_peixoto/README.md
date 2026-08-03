@@ -9,7 +9,9 @@ Bot do Discord ligado ao **Jornal Carlos Peixoto**. Ele publica automaticamente 
 - Recupera o último ID pelo histórico do canal para evitar mensagens duplicadas após reinícios.
 - Mostra título, resumo, editoria, fonte, foto e link da notícia.
 - Toca áudio com pesquisa ou link usando yt-dlp e FFmpeg.
+- Reconhece faixas, álbuns e playlists do Spotify com auxílio do spotDL.
 - Mantém uma fila musical separada para cada servidor.
+- Mostra cartões da fila com capa, duração, posição e estimativa para tocar.
 - Entra automaticamente no canal de voz configurado e reconecta se a conexão cair.
 - Repete continuamente a programação musical cadastrada no painel do Jornal.
 - Dá prioridade aos pedidos feitos com `/tocar` e retoma a programação depois.
@@ -25,6 +27,8 @@ Bot do Discord ligado ao **Jornal Carlos Peixoto**. Ele publica automaticamente 
 - `/sair`: desconecta o bot do canal de voz.
 
 Use apenas áudios que você tem autorização para reproduzir e respeite as regras da plataforma de origem.
+
+Cada link de playlist ou álbum do Spotify adiciona no máximo 25 faixas por pedido, preservando espaço para outros usuários. O Spotify fornece os metadados; a reprodução é procurada em uma fonte de áudio compatível.
 
 ## 1. Publicar a conexão no site
 
