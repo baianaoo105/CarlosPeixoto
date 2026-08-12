@@ -1,37 +1,18 @@
 import os
-import math
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from pathlib import Path
-from urllib.parse import urlparse
-from uuid import UUID, uuid4
+from uuid import uuid4
 
-from flask import (Flask, Response, abort, flash, jsonify, redirect,
+from flask import (Flask, Response, abort, flash, redirect,
                    render_template, request, session, url_for)
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func, inspect, text
-from sqlalchemy.orm import defer
 from werkzeug.utils import secure_filename
 
 BASE_DIR = Path(__file__).resolve().parent
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp", "gif"}
 MAX_IMAGE_SIZE = 8 * 1024 * 1024
-MAX_AUDIO_SIZE = 50 * 1024 * 1024
-AUDIO_UPLOAD_CHUNK_SIZE = 3 * 1024 * 1024
-AUDIO_RESPONSE_CHUNK_SIZE = 3 * 1024 * 1024
-ALLOWED_AUDIO_EXTENSIONS = {"mp3", "m4a", "ogg", "opus", "wav", "webm", "aac", "flac"}
-ALLOWED_AUDIO_MIMETYPES = {
-    "audio/aac",
-    "audio/flac",
-    "audio/mp4",
-    "audio/mpeg",
-    "audio/ogg",
-    "audio/opus",
-    "audio/wav",
-    "audio/webm",
-    "audio/x-wav",
-    "application/ogg",
-}
 CATEGORIES = ["Polícia", "Médicos", "Bombeiros", "Juiz", "Advogado", "Jornalista"]
 CATEGORY_SLUGS = {
     "policia": "Polícia",
@@ -122,39 +103,6 @@ class Professional(db.Model):
     office_image_data = db.Column(db.LargeBinary)
     featured = db.Column(db.Boolean, nullable=False, default=False)
     featured_reason = db.Column(db.String(300))
-
-
-class MusicTrack(db.Model):
-    __tablename__ = "music_tracks"
-
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(180), nullable=False)
-    source_url = db.Column(db.String(1000))
-    audio_filename = db.Column(db.String(255))
-    audio_mimetype = db.Column(db.String(100))
-    audio_data = db.Column(db.LargeBinary)
-    enabled = db.Column(db.Boolean, nullable=False, default=True)
-    position = db.Column(db.Integer, nullable=False, default=0)
-    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
-    updated_at = db.Column(
-        db.DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now
-    )
-
-
-class MusicUploadChunk(db.Model):
-    __tablename__ = "music_upload_chunks"
-    __table_args__ = (
-        db.UniqueConstraint("upload_token", "chunk_index", name="uq_music_upload_chunk"),
-    )
-
-    id = db.Column(db.Integer, primary_key=True)
-    upload_token = db.Column(db.String(36), nullable=False, index=True)
-    chunk_index = db.Column(db.Integer, nullable=False)
-    total_chunks = db.Column(db.Integer, nullable=False)
-    filename = db.Column(db.String(255), nullable=False)
-    mimetype = db.Column(db.String(100), nullable=False)
-    data = db.Column(db.LargeBinary, nullable=False)
-    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
 
 
 class Conversation(db.Model):
@@ -532,7 +480,8 @@ def index():
 
 @app.route("/api/noticias")
 def news_api():
-    """Lista publica e resumida usada pelo BOT PEIXOTO."""
+    abort(404)
+    """Rota antiga desativada nesta versão independente."""
     limit = request.args.get("limit", default=20, type=int) or 20
     limit = max(1, min(limit, 50))
     items = db.session.execute(
@@ -567,6 +516,7 @@ def news_api():
 
 @app.route("/api/musicas")
 def music_api():
+    abort(404)
     items = db.session.execute(
         db.select(MusicTrack)
         .options(defer(MusicTrack.audio_data))
@@ -749,6 +699,7 @@ def admin_professionals():
 @app.route("/admin/musicas")
 @admin_required
 def admin_music():
+    abort(404)
     tracks = db.session.execute(
         db.select(MusicTrack)
         .options(defer(MusicTrack.audio_data))
@@ -813,6 +764,7 @@ def music_form_values(track=None):
 @app.route("/admin/musica/upload/chunk", methods=["POST"])
 @admin_required
 def admin_music_upload_chunk():
+    abort(404)
     try:
         token = normalized_upload_token(request.form.get("upload_token"))
         chunk_index = int(request.form.get("chunk_index", ""))
@@ -898,11 +850,12 @@ def admin_music_upload_chunk():
 @app.route("/admin/musica/nova", methods=["GET", "POST"])
 @admin_required
 def admin_music_create():
+    abort(404)
     if request.method == "POST":
         try:
             db.session.add(MusicTrack(**music_form_values()))
             db.session.commit()
-            flash("Música adicionada à programação do BOT PEIXOTO.", "success")
+            flash("Recurso indisponível nesta versão independente.", "error")
             return redirect(url_for("admin_music"))
         except ValueError as error:
             flash(str(error), "error")
@@ -912,13 +865,14 @@ def admin_music_create():
 @app.route("/admin/musica/<int:music_id>/editar", methods=["GET", "POST"])
 @admin_required
 def admin_music_edit(music_id):
+    abort(404)
     track = db.get_or_404(MusicTrack, music_id)
     if request.method == "POST":
         try:
             for key, value in music_form_values(track).items():
                 setattr(track, key, value)
             db.session.commit()
-            flash("Programação musical atualizada.", "success")
+            flash("Recurso indisponível nesta versão independente.", "error")
             return redirect(url_for("admin_music"))
         except ValueError as error:
             flash(str(error), "error")
@@ -928,6 +882,7 @@ def admin_music_edit(music_id):
 @app.route("/admin/musica/<int:music_id>/excluir", methods=["POST"])
 @admin_required
 def admin_music_delete(music_id):
+    abort(404)
     track = db.get_or_404(MusicTrack, music_id)
     title = track.title
     db.session.delete(track)
@@ -1284,6 +1239,7 @@ def professional_office_photo(professional_id):
 
 @app.route("/midia/musica/<int:music_id>")
 def music_audio(music_id):
+    abort(404)
     track = db.get_or_404(MusicTrack, music_id)
     if not track.enabled or not track.audio_data:
         abort(404)
@@ -1369,9 +1325,8 @@ def server_error(error):
 
 with app.app_context():
     db.create_all()
-    # As colunas novas precisam existir antes de qualquer consulta ORM à tabela news.
-    migrate_news_source_name()
     migrate_legacy_sqlite()
+    migrate_news_source_name()
     migrate_professional_images()
     migrate_conversation_details()
     seed_database()

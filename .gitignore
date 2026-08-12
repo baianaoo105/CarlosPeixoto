@@ -6,3 +6,6 @@ jornal.db
 .env.*
 .vercel/
 bot_peixoto/data/
+
+.vercel
+.env*
