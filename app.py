@@ -20,7 +20,8 @@ VIDEO_EXTENSIONS = {"mp4", "webm", "mov"}
 
 
 def database_url():
-    value = next((os.getenv(key, "").strip() for key in ("POSTGRES_URL", "DATABASE_URL", "DATABASE_URL_UNPOOLED") if os.getenv(key, "").strip()), "")
+    # Prefira a conexão agrupada nas funções serverless da Vercel.
+    value = next((os.getenv(key, "").strip() for key in ("DATABASE_URL", "POSTGRES_URL", "DATABASE_URL_UNPOOLED") if os.getenv(key, "").strip()), "")
     if not value:
         path = Path("/tmp/jornal_novo.db") if os.getenv("VERCEL") else BASE_DIR / "jornal_novo.db"
         return f"sqlite:///{path.as_posix()}"
@@ -137,7 +138,7 @@ def seed():
 
 @app.before_request
 def initialize():
-    if request.endpoint == "static":
+    if request.endpoint in {"static", "favicon", "health"}:
         return
     try:
         db.create_all()
@@ -158,6 +159,12 @@ def home():
     latest = db.session.execute(db.select(News).order_by(News.created_at.desc()).limit(9)).scalars().all()
     videos = db.session.execute(db.select(Video).order_by(Video.created_at.desc()).limit(3)).scalars().all()
     return render_template("home.html", featured=featured, latest=latest, videos=videos)
+
+
+@app.route("/favicon.ico")
+def favicon():
+    """Responde à solicitação automática do navegador sem acessar o banco."""
+    return Response(status=204)
 
 
 @app.route("/regiao/<name>")

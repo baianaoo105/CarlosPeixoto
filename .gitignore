@@ -4,6 +4,3 @@ __pycache__/
 jornal_novo.db
 .env*
 .vercel/
-
-.vercel
-.env*
