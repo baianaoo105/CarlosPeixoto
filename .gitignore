@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+*.pyc
+jornal_novo.db
+.env*
+.vercel/
