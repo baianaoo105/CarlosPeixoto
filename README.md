@@ -16,10 +16,12 @@ Abra `http://127.0.0.1:5000`.
 
 ## Vercel
 
-Configure `ADMIN_PASSWORD`, `SECRET_KEY` e `DATABASE_URL` nas variáveis do projeto. `DATABASE_URL` deve apontar para o Postgres/Neon já conectado. Em seguida, publique com:
+Configure `ADMIN_PASSWORD`, `SECRET_KEY` e a variável do banco nas configurações do projeto. O site reconhece automaticamente `DATABASE_URL`, `STORAGE_URL`, `POSTGRES_URL` ou `POSTGRES_PRISMA_URL` criadas pela integração Postgres/Neon. Em seguida, publique com:
 
 ```powershell
 npx vercel --prod
 ```
 
 O ZIP foi organizado com `app.py`, `vercel.json` e as demais pastas diretamente na raiz.
+
+Se a integração criou `STORAGE_URL`, não é necessário renomeá-la: esta versão reconhece esse nome automaticamente.

@@ -27,9 +27,22 @@ BAHIA_TIMEZONE = timezone(timedelta(hours=-3))
 
 
 def database_uri():
-    value = os.environ.get("DATABASE_URL", "").strip()
+    value = next(
+        (
+            os.environ.get(name, "").strip()
+            for name in (
+                "DATABASE_URL",
+                "STORAGE_URL",
+                "POSTGRES_URL",
+                "POSTGRES_PRISMA_URL",
+            )
+            if os.environ.get(name, "").strip()
+        ),
+        "",
+    )
     if not value:
-        return f"sqlite:///{(BASE_DIR / 'jornal.db').as_posix()}"
+        sqlite_path = Path("/tmp/jornal.db") if os.environ.get("VERCEL") else BASE_DIR / "jornal.db"
+        return f"sqlite:///{sqlite_path.as_posix()}"
     if value.startswith("postgres://"):
         value = "postgresql://" + value[len("postgres://"):]
     if value.startswith("postgresql://"):
