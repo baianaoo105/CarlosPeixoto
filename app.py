@@ -62,6 +62,8 @@ app.config.update(
     SESSION_COOKIE_SECURE=bool(os.environ.get("VERCEL")),
 )
 db = SQLAlchemy(app)
+database_ready = False
+database_error = None
 
 
 def utc_now():
@@ -383,6 +385,50 @@ def globals_for_templates():
         "category_slug": CATEGORY_TO_SLUG,
         "current_year": datetime.now().year,
     }
+
+
+def initialize_database():
+    global database_ready, database_error
+    if database_ready:
+        return
+    try:
+        db.create_all()
+        migrate_legacy_sqlite()
+        migrate_news_source_name()
+        migrate_professional_images()
+        migrate_conversation_details()
+        seed_database()
+        database_ready = True
+        database_error = None
+    except Exception as error:
+        db.session.rollback()
+        database_error = error
+        app.logger.exception("Falha ao inicializar o banco de dados")
+
+
+@app.before_request
+def prepare_database():
+    if request.endpoint in {"static", "favicon", "health"}:
+        return None
+    initialize_database()
+    if database_error is not None:
+        return Response(
+            "O site não conseguiu conectar ao banco de dados. "
+            "Confira DATABASE_URL ou STORAGE_URL na Vercel.",
+            status=503,
+            mimetype="text/plain; charset=utf-8",
+        )
+    return None
+
+
+@app.route("/favicon.png")
+def favicon():
+    return app.send_static_file("img/icone.png")
+
+
+@app.route("/saude")
+def health():
+    return {"status": "ok"}
 
 
 @app.template_filter("datetime_br")
@@ -936,15 +982,6 @@ def server_error(error):
     app.logger.error("Erro interno: %s", error)
     db.session.rollback()
     return render_template("error.html", code=500, message="Ocorreu um erro inesperado. Tente novamente."), 500
-
-
-with app.app_context():
-    db.create_all()
-    migrate_legacy_sqlite()
-    migrate_news_source_name()
-    migrate_professional_images()
-    migrate_conversation_details()
-    seed_database()
 
 
 if __name__ == "__main__":
