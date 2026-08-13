@@ -140,6 +140,10 @@ def seed():
 def initialize():
     if request.endpoint in {"static", "favicon", "health"}:
         return
+    # Em cada nova sessão, a primeira tela é a entrada administrativa.
+    # Visitantes podem continuar sem criar conta ou informar senha.
+    if not session.get("admin") and not session.get("entry_seen") and request.endpoint not in {"login", "continue_as_visitor"}:
+        return redirect(url_for("login", next=request.full_path.rstrip("?")))
     try:
         db.create_all()
         seed()
@@ -224,10 +228,23 @@ def login():
         expected_password = os.getenv("ADMIN_PASSWORD", "")
         valid_password = check_password_hash(expected_hash, password) if expected_hash else bool(expected_password) and password == expected_password
         if username == expected_user and valid_password:
-            session.clear(); session["admin"] = True; session.permanent = False
-            return redirect(request.args.get("next") or url_for("admin"))
+            session.clear(); session["admin"] = True; session["entry_seen"] = True; session.permanent = False
+            destination = request.args.get("next", "")
+            if not destination.startswith("/") or destination.startswith("//"):
+                destination = url_for("admin")
+            return redirect(destination)
         flash("Usuário ou senha incorretos.", "error")
     return render_template("login.html")
+
+
+@app.route("/continuar")
+def continue_as_visitor():
+    session["entry_seen"] = True
+    session.permanent = False
+    destination = request.args.get("next", "")
+    if not destination.startswith("/") or destination.startswith("//"):
+        destination = url_for("home")
+    return redirect(destination)
 
 
 @app.route("/sair")
