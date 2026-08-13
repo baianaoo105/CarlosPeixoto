@@ -24,22 +24,25 @@ CATEGORY_SLUGS = {
 }
 CATEGORY_TO_SLUG = {name: slug for slug, name in CATEGORY_SLUGS.items()}
 BAHIA_TIMEZONE = timezone(timedelta(hours=-3))
+database_variable = "nenhuma"
 
 
 def database_uri():
-    value = next(
-        (
-            os.environ.get(name, "").strip()
-            for name in (
-                "DATABASE_URL",
-                "STORAGE_URL",
-                "POSTGRES_URL",
-                "POSTGRES_PRISMA_URL",
-            )
-            if os.environ.get(name, "").strip()
-        ),
-        "",
-    )
+    global database_variable
+    value = ""
+    for name in (
+        "POSTGRES_URL",
+        "POSTGRES_PRISMA_URL",
+        "DATABASE_URL",
+        "DATABASE_URL_UNPOOLED",
+        "POSTGRES_URL_NON_POOLING",
+        "STORAGE_URL",
+    ):
+        candidate = os.environ.get(name, "").strip()
+        if candidate:
+            database_variable = name
+            value = candidate
+            break
     if not value:
         sqlite_path = Path("/tmp/jornal.db") if os.environ.get("VERCEL") else BASE_DIR / "jornal.db"
         return f"sqlite:///{sqlite_path.as_posix()}"
@@ -64,6 +67,7 @@ app.config.update(
 db = SQLAlchemy(app)
 database_ready = False
 database_error = None
+database_stage = "não iniciado"
 
 
 def utc_now():
@@ -388,18 +392,25 @@ def globals_for_templates():
 
 
 def initialize_database():
-    global database_ready, database_error
+    global database_ready, database_error, database_stage
     if database_ready:
         return
     try:
+        database_stage = "criação das tabelas"
         db.create_all()
+        database_stage = "migração SQLite"
         migrate_legacy_sqlite()
+        database_stage = "migração das fontes"
         migrate_news_source_name()
+        database_stage = "migração dos profissionais"
         migrate_professional_images()
+        database_stage = "migração das conversas"
         migrate_conversation_details()
+        database_stage = "dados iniciais"
         seed_database()
         database_ready = True
         database_error = None
+        database_stage = "pronto"
     except Exception as error:
         db.session.rollback()
         database_error = error
@@ -408,7 +419,7 @@ def initialize_database():
 
 @app.before_request
 def prepare_database():
-    if request.endpoint in {"static", "favicon", "health"}:
+    if request.endpoint in {"static", "favicon", "health", "database_diagnostic"}:
         return None
     initialize_database()
     if database_error is not None:
@@ -429,6 +440,33 @@ def favicon():
 @app.route("/saude")
 def health():
     return {"status": "ok"}
+
+
+@app.route("/diagnostico-banco")
+def database_diagnostic():
+    initialize_database()
+    if database_ready:
+        return {"status": "ok", "variavel": database_variable, "etapa": database_stage}
+    message = str(getattr(database_error, "orig", database_error)).lower()
+    if "password authentication failed" in message:
+        category = "autenticação recusada"
+    elif "could not translate host name" in message or "name or service not known" in message:
+        category = "servidor do banco não encontrado"
+    elif "timeout" in message or "timed out" in message:
+        category = "tempo de conexão esgotado"
+    elif "endpoint" in message and ("disabled" in message or "suspended" in message):
+        category = "banco suspenso"
+    elif "ssl" in message:
+        category = "configuração SSL"
+    else:
+        category = "conexão recusada"
+    return {
+        "status": "erro",
+        "variavel": database_variable,
+        "etapa": database_stage,
+        "tipo": type(database_error).__name__ if database_error else "desconhecido",
+        "categoria": category,
+    }, 503
 
 
 @app.template_filter("datetime_br")
