@@ -1,42 +1,25 @@
-# Jornal Carlos Peixoto — versão sem bot
+# Jornal Carlos Peixoto — reconstruído sem bot
 
-Portal de notícias em Flask sem conexão com bot, Discord API ou programação musical.
+Portal Flask independente, sem BOT PEIXOTO, API do bot ou programação musical.
 
-## Recursos
-
-- Notícias e comentários persistentes.
-- Painel administrativo para notícias, profissionais e mensagens.
-- Fotos de notícias, fontes, profissionais e escritórios.
-- Profissional em destaque com motivo do destaque.
-- Contato particular entre visitante e administrador.
-- SQLite no computador e Postgres/Neon na Vercel.
-- Layout responsivo em português do Brasil.
-
-## Executar no Windows
-
-Abra o PowerShell dentro desta pasta e execute:
+## Rodar no Windows
 
 ```powershell
 py -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-$env:ADMIN_PASSWORD="sua-senha-administrativa"
-$env:SECRET_KEY="uma-chave-secreta-longa-e-diferente"
+$env:ADMIN_PASSWORD="sua-senha"
+$env:SECRET_KEY="uma-chave-secreta-longa"
 .\.venv\Scripts\python.exe app.py
 ```
 
 Abra `http://127.0.0.1:5000`.
 
-## Publicar na Vercel
+## Vercel
 
-Mantenha no projeto as variáveis `ADMIN_PASSWORD`, `SECRET_KEY` e `DATABASE_URL`.
-O `DATABASE_URL` deve apontar para um banco Postgres/Neon para que os dados online sejam persistentes.
+Configure `ADMIN_PASSWORD`, `SECRET_KEY` e `DATABASE_URL` nas variáveis do projeto. `DATABASE_URL` deve apontar para o Postgres/Neon já conectado. Em seguida, publique com:
 
-Depois envie a pasta ao GitHub conectado à Vercel ou execute `vercel --prod`.
+```powershell
+npx vercel --prod
+```
 
-## Acessos
-
-- Página inicial: `/`
-- Painel: `/admin`
-- Contato particular: `/contato`
-
-Esta versão não contém a pasta do BOT PEIXOTO e bloqueia as antigas rotas de API e música.
+O ZIP foi organizado com `app.py`, `vercel.json` e as demais pastas diretamente na raiz.

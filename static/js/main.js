@@ -9,8 +9,7 @@ button?.addEventListener('click', () => {
 
 document.querySelectorAll('[data-confirm]').forEach((form) => {
   form.addEventListener('submit', (event) => {
-    const message = form.dataset.confirmMessage
-      || 'Tem certeza que deseja excluir este item?';
+    const message = form.dataset.confirmMessage || 'Tem certeza que deseja excluir este item?';
     if (!window.confirm(message)) event.preventDefault();
   });
 });
