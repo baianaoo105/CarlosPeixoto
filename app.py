@@ -14,6 +14,14 @@ from werkzeug.utils import secure_filename
 
 BASE_DIR = Path(__file__).resolve().parent
 CATEGORIES = ["Polícia", "Médicos", "Bombeiros", "Juiz", "Advogado", "Jornalista"]
+CATEGORY_SLUGS = {
+    "Polícia": "policia",
+    "Médicos": "medicos",
+    "Bombeiros": "bombeiros",
+    "Juiz": "juiz",
+    "Advogado": "advogado",
+    "Jornalista": "jornalista",
+}
 REGIONS = ["Carlos Peixoto", "Osso Seco"]
 MAX_IMAGE = 8 * 1024 * 1024
 MAX_VIDEO = 20 * 1024 * 1024
@@ -166,7 +174,7 @@ def initialize():
 
 @app.context_processor
 def shared():
-    return {"categories": CATEGORIES, "regions": REGIONS, "year": datetime.now().year}
+    return {"categories": CATEGORIES, "category_slugs": CATEGORY_SLUGS, "regions": REGIONS, "year": datetime.now().year}
 
 
 def normalized_label(value):
@@ -202,6 +210,13 @@ def profession(category):
     aliases = {"medico": "medicos", "medica": "medicos", "policial": "policia"}
     requested = aliases.get(requested, requested)
     category = next((item for item in CATEGORIES if normalized_label(item) == requested), None)
+    if not category: abort(404)
+    return redirect(url_for("profession_slug", slug=CATEGORY_SLUGS[category]), code=301)
+
+
+@app.route("/servico/<slug>")
+def profession_slug(slug):
+    category = next((name for name, item_slug in CATEGORY_SLUGS.items() if item_slug == normalized_label(slug)), None)
     if not category: abort(404)
     people = db.session.execute(db.select(Professional).where(Professional.category == category)).scalars().all()
     items = db.session.execute(db.select(News).where(News.category == category).order_by(News.created_at.desc())).scalars().all()
@@ -314,6 +329,17 @@ def admin_event():
         except (KeyError, ValueError) as exc:
             db.session.rollback(); flash("Confira os dados do evento.", "error")
     return render_template("admin_form.html", kind="evento")
+
+
+@app.route("/admin/evento/<int:item_id>/excluir", methods=["POST"])
+@admin_required
+def delete_event(item_id):
+    item = db.get_or_404(Event, item_id)
+    month, year = item.event_date.month, item.event_date.year
+    db.session.delete(item)
+    db.session.commit()
+    flash("Evento excluído do calendário.", "success")
+    return redirect(url_for("calendar_page", mes=month, ano=year))
 
 
 @app.route("/admin/noticia", methods=["GET", "POST"])

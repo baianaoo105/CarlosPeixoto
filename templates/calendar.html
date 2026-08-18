@@ -27,6 +27,11 @@
                   {% if event.event_time %}<time>{{ event.event_time }}</time>{% endif %}
                   <b>{{ event.title }}</b>
                   <small>{{ event.region }}</small>
+                  {% if session.get('admin') %}
+                    <form method="post" action="{{ url_for('delete_event', item_id=event.id) }}" onsubmit="return confirm('Deseja realmente excluir este evento?');">
+                      <button class="event-delete" type="submit">Excluir</button>
+                    </form>
+                  {% endif %}
                 </article>
               {% endfor %}
             </div>
