@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block title %}Calendário — Jornal Carlos Peixoto{% endblock %}
+{% block content %}
+<section class="calendar-page">
+  <div class="container">
+    <div class="calendar-heading">
+      <span class="calendar-symbol" aria-hidden="true">✦</span>
+      <span class="calendar-line"></span>
+      <h1>Eventos para {{ month_name }} <small>{{ year }}</small></h1>
+    </div>
+    <nav class="calendar-nav" aria-label="Navegação entre meses">
+      <a href="{{ url_for('calendar_page', mes=previous.month, ano=previous.year) }}">← {{ previous.strftime('%m/%Y') }}</a>
+      <a href="{{ url_for('calendar_page') }}">Mês atual</a>
+      <a href="{{ url_for('calendar_page', mes=following.month, ano=following.year) }}">{{ following.strftime('%m/%Y') }} →</a>
+    </nav>
+    <div class="calendar-scroll">
+      <div class="calendar-grid calendar-weekdays">
+        {% for weekday in ['DOM','SEG','TER','QUA','QUI','SEX','SÁB'] %}<div>{{ weekday }}</div>{% endfor %}
+      </div>
+      <div class="calendar-grid calendar-days">
+        {% for week in weeks %}
+          {% for day in week %}
+            <div class="calendar-day {% if not day %}empty{% endif %} {% if day and today.year == year and today.month == month and today.day == day %}today{% endif %}">
+              {% if day %}<span class="day-number">{{ day }}</span>{% endif %}
+              {% for event in events_by_day.get(day, []) %}
+                <article class="calendar-event" title="{{ event.description }}">
+                  {% if event.event_time %}<time>{{ event.event_time }}</time>{% endif %}
+                  <b>{{ event.title }}</b>
+                  <small>{{ event.region }}</small>
+                </article>
+              {% endfor %}
+            </div>
+          {% endfor %}
+        {% endfor %}
+      </div>
+    </div>
+    {% if session.get('admin') %}<a class="button calendar-add" href="{{ url_for('admin_event') }}">+ Novo evento</a>{% endif %}
+  </div>
+</section>
+{% endblock %}

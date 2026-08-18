@@ -1,6 +1,8 @@
+import calendar as calendar_module
 import json
 import os
-from datetime import datetime, timezone
+import unicodedata
+from datetime import date, datetime, timezone
 from functools import wraps
 from pathlib import Path
 
@@ -86,6 +88,16 @@ class Professional(db.Model):
     photo_data = db.Column(db.LargeBinary)
 
 
+class Event(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(160), nullable=False)
+    event_date = db.Column(db.Date, nullable=False, index=True)
+    event_time = db.Column(db.String(20))
+    description = db.Column(db.String(600), nullable=False)
+    region = db.Column(db.String(40), nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), default=now, nullable=False)
+
+
 class Application(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     minecraft_name = db.Column(db.String(80), nullable=False)
@@ -157,6 +169,11 @@ def shared():
     return {"categories": CATEGORIES, "regions": REGIONS, "year": datetime.now().year}
 
 
+def normalized_label(value):
+    value = unicodedata.normalize("NFKD", value or "")
+    return "".join(char for char in value if not unicodedata.combining(char)).casefold().strip()
+
+
 @app.route("/")
 def home():
     featured = db.session.execute(db.select(News).where(News.featured.is_(True)).order_by(News.updated_at.desc()).limit(4)).scalars().all()
@@ -181,10 +198,35 @@ def region(name):
 
 @app.route("/profissao/<category>")
 def profession(category):
-    if category not in CATEGORIES: abort(404)
+    requested = normalized_label(category)
+    aliases = {"medico": "medicos", "medica": "medicos", "policial": "policia"}
+    requested = aliases.get(requested, requested)
+    category = next((item for item in CATEGORIES if normalized_label(item) == requested), None)
+    if not category: abort(404)
     people = db.session.execute(db.select(Professional).where(Professional.category == category)).scalars().all()
     items = db.session.execute(db.select(News).where(News.category == category).order_by(News.created_at.desc())).scalars().all()
     return render_template("profession.html", category=category, people=people, items=items)
+
+
+@app.route("/calendario")
+def calendar_page():
+    today = date.today()
+    try:
+        month = min(12, max(1, int(request.args.get("mes", today.month))))
+        year = min(2100, max(2020, int(request.args.get("ano", today.year))))
+    except ValueError:
+        month, year = today.month, today.year
+    first_day = date(year, month, 1)
+    last_day = date(year, month, calendar_module.monthrange(year, month)[1])
+    items = db.session.execute(db.select(Event).where(Event.event_date.between(first_day, last_day)).order_by(Event.event_date, Event.event_time)).scalars().all()
+    events_by_day = {}
+    for item in items:
+        events_by_day.setdefault(item.event_date.day, []).append(item)
+    weeks = calendar_module.Calendar(firstweekday=6).monthdayscalendar(year, month)
+    previous = date(year - 1, 12, 1) if month == 1 else date(year, month - 1, 1)
+    following = date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)
+    month_names = ["", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
+    return render_template("calendar.html", month=month, year=year, month_name=month_names[month], weeks=weeks, events_by_day=events_by_day, today=today, previous=previous, following=following)
 
 
 @app.route("/noticia/<int:item_id>")
@@ -256,9 +298,22 @@ def logout():
 @app.route("/admin")
 @admin_required
 def admin():
-    counts = {"noticias": db.session.scalar(db.select(func.count(News.id))), "videos": db.session.scalar(db.select(func.count(Video.id))), "profissionais": db.session.scalar(db.select(func.count(Professional.id))), "candidaturas": db.session.scalar(db.select(func.count(Application.id)))}
+    counts = {"noticias": db.session.scalar(db.select(func.count(News.id))), "videos": db.session.scalar(db.select(func.count(Video.id))), "profissionais": db.session.scalar(db.select(func.count(Professional.id))), "eventos": db.session.scalar(db.select(func.count(Event.id))), "candidaturas": db.session.scalar(db.select(func.count(Application.id)))}
     applications = db.session.execute(db.select(Application).order_by(Application.created_at.desc()).limit(10)).scalars().all()
     return render_template("admin.html", counts=counts, applications=applications)
+
+
+@app.route("/admin/evento", methods=["GET", "POST"])
+@admin_required
+def admin_event():
+    if request.method == "POST":
+        try:
+            item = Event(title=request.form["title"].strip(), event_date=date.fromisoformat(request.form["event_date"]), event_time=request.form.get("event_time", "").strip(), description=request.form["description"].strip(), region=request.form["region"])
+            db.session.add(item); db.session.commit(); flash("Evento adicionado ao calendário.", "success")
+            return redirect(url_for("calendar_page", mes=item.event_date.month, ano=item.event_date.year))
+        except (KeyError, ValueError) as exc:
+            db.session.rollback(); flash("Confira os dados do evento.", "error")
+    return render_template("admin_form.html", kind="evento")
 
 
 @app.route("/admin/noticia", methods=["GET", "POST"])
