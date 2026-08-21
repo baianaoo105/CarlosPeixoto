@@ -1,6 +1,4 @@
-.venv/
+.env
+bot_data.db
 __pycache__/
 *.pyc
-jornal_novo.db
-.env*
-.vercel/

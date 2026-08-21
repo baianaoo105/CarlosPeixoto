@@ -315,7 +315,10 @@ def logout():
 def admin():
     counts = {"noticias": db.session.scalar(db.select(func.count(News.id))), "videos": db.session.scalar(db.select(func.count(Video.id))), "profissionais": db.session.scalar(db.select(func.count(Professional.id))), "eventos": db.session.scalar(db.select(func.count(Event.id))), "candidaturas": db.session.scalar(db.select(func.count(Application.id)))}
     applications = db.session.execute(db.select(Application).order_by(Application.created_at.desc()).limit(10)).scalars().all()
-    return render_template("admin.html", counts=counts, applications=applications)
+    news_items = db.session.execute(db.select(News).order_by(News.created_at.desc())).scalars().all()
+    video_items = db.session.execute(db.select(Video).order_by(Video.created_at.desc())).scalars().all()
+    professional_items = db.session.execute(db.select(Professional).order_by(Professional.id.desc())).scalars().all()
+    return render_template("admin.html", counts=counts, applications=applications, news_items=news_items, video_items=video_items, professional_items=professional_items)
 
 
 @app.route("/admin/evento", methods=["GET", "POST"])
@@ -356,6 +359,16 @@ def admin_news():
     return render_template("admin_form.html", kind="notícia")
 
 
+@app.route("/admin/noticia/<int:item_id>/excluir", methods=["POST"])
+@admin_required
+def delete_news(item_id):
+    item = db.get_or_404(News, item_id)
+    db.session.delete(item)
+    db.session.commit()
+    flash("Notícia excluída.", "success")
+    return redirect(url_for("admin"))
+
+
 @app.route("/admin/video", methods=["GET", "POST"])
 @admin_required
 def admin_video():
@@ -370,6 +383,16 @@ def admin_video():
     return render_template("admin_form.html", kind="vídeo")
 
 
+@app.route("/admin/video/<int:item_id>/excluir", methods=["POST"])
+@admin_required
+def delete_video(item_id):
+    item = db.get_or_404(Video, item_id)
+    db.session.delete(item)
+    db.session.commit()
+    flash("Vídeo excluído.", "success")
+    return redirect(url_for("admin"))
+
+
 @app.route("/admin/profissional", methods=["GET", "POST"])
 @admin_required
 def admin_professional():
@@ -381,6 +404,16 @@ def admin_professional():
             db.session.add(item); db.session.commit(); flash("Profissional adicionado.", "success"); return redirect(url_for("admin"))
         except (KeyError, ValueError) as error: flash(str(error), "error")
     return render_template("admin_form.html", kind="profissional")
+
+
+@app.route("/admin/profissional/<int:item_id>/excluir", methods=["POST"])
+@admin_required
+def delete_professional(item_id):
+    item = db.get_or_404(Professional, item_id)
+    db.session.delete(item)
+    db.session.commit()
+    flash("Profissional excluído.", "success")
+    return redirect(url_for("admin"))
 
 
 @app.route("/candidatura", methods=["GET", "POST"])

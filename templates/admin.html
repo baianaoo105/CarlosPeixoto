@@ -5,14 +5,23 @@
 <section class="container section">
   <div class="stats">{% for label,value in counts.items() %}<div><strong>{{ value }}</strong><span>{{ label }}</span></div>{% endfor %}</div>
   <div class="admin-actions"><a href="{{ url_for('admin_news') }}">+ Nova notícia</a><a href="{{ url_for('admin_video') }}">+ Novo vídeo</a><a href="{{ url_for('admin_professional') }}">+ Novo profissional</a><a href="{{ url_for('admin_event') }}">+ Novo evento</a></div>
-  <div class="section-head"><div><p class="eyebrow">Seleção</p><h2>Candidaturas recentes</h2></div></div>
-  <div class="application-list">
-    {% for item in applications %}
-      <article class="application-row">
-        <a class="application-main" href="{{ url_for('admin_application',item_id=item.id) }}"><div><b>{{ item.minecraft_name }}</b><span>{{ item.area }} · {{ item.discord_name }}</span></div><em class="status">{{ item.status }}</em></a>
-        <form method="post" action="{{ url_for('delete_application',item_id=item.id) }}" onsubmit="return confirm('Deseja realmente excluir esta candidatura?');"><button class="application-delete" type="submit">Excluir</button></form>
-      </article>
-    {% else %}<p>Nenhuma candidatura recebida.</p>{% endfor %}
+
+  <div class="content-managers">
+    <section class="content-manager">
+      <div class="section-head"><div><p class="eyebrow">Conteúdo</p><h2>Notícias publicadas</h2></div></div>
+      <div class="manager-list">{% for item in news_items %}<article class="manager-row"><div><b>{{ item.title }}</b><span>{{ item.category }} · {{ item.region }} · {{ item.created_at.strftime('%d/%m/%Y') }}</span></div><form method="post" action="{{ url_for('delete_news',item_id=item.id) }}" onsubmit="return confirm('Deseja realmente excluir esta notícia?');"><button class="manager-delete" type="submit">Excluir</button></form></article>{% else %}<p class="empty-manager">Nenhuma notícia publicada.</p>{% endfor %}</div>
+    </section>
+    <section class="content-manager">
+      <div class="section-head"><div><p class="eyebrow">Conteúdo</p><h2>Vídeos publicados</h2></div></div>
+      <div class="manager-list">{% for item in video_items %}<article class="manager-row"><div><b>{{ item.title }}</b><span>{{ item.region }} · {{ item.created_at.strftime('%d/%m/%Y') }}</span></div><form method="post" action="{{ url_for('delete_video',item_id=item.id) }}" onsubmit="return confirm('Deseja realmente excluir este vídeo?');"><button class="manager-delete" type="submit">Excluir</button></form></article>{% else %}<p class="empty-manager">Nenhum vídeo publicado.</p>{% endfor %}</div>
+    </section>
+    <section class="content-manager">
+      <div class="section-head"><div><p class="eyebrow">Serviços</p><h2>Profissionais cadastrados</h2></div></div>
+      <div class="manager-list">{% for item in professional_items %}<article class="manager-row"><div><b>{{ item.name }}</b><span>{{ item.category }} · {{ item.role }}</span></div><form method="post" action="{{ url_for('delete_professional',item_id=item.id) }}" onsubmit="return confirm('Deseja realmente excluir este profissional?');"><button class="manager-delete" type="submit">Excluir</button></form></article>{% else %}<p class="empty-manager">Nenhum profissional cadastrado.</p>{% endfor %}</div>
+    </section>
   </div>
+
+  <div class="section-head applications-heading"><div><p class="eyebrow">Seleção</p><h2>Candidaturas recentes</h2></div></div>
+  <div class="application-list">{% for item in applications %}<article class="application-row"><a class="application-main" href="{{ url_for('admin_application',item_id=item.id) }}"><div><b>{{ item.minecraft_name }}</b><span>{{ item.area }} · {{ item.discord_name }}</span></div><em class="status">{{ item.status }}</em></a><form method="post" action="{{ url_for('delete_application',item_id=item.id) }}" onsubmit="return confirm('Deseja realmente excluir esta candidatura?');"><button class="application-delete" type="submit">Excluir</button></form></article>{% else %}<p>Nenhuma candidatura recebida.</p>{% endfor %}</div>
 </section>
 {% endblock %}
