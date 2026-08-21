@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block title %}Candidaturas | Administração{% endblock %}
+{% block content %}
+<section class="admin-hero">
+  <div class="container">
+    <div><p class="eyebrow">Seleção</p><h1>Candidaturas</h1><p>Visualize e analise todas as candidaturas recebidas.</p></div>
+    <a class="button outline" href="{{ url_for('admin') }}">← Voltar ao painel</a>
+  </div>
+</section>
+<section class="container section">
+  <div class="section-head"><div><p class="eyebrow">Administração</p><h2>Candidaturas recebidas</h2></div></div>
+  <div class="application-list">
+    {% for item in applications %}
+      <article class="application-row">
+        <a class="application-main" href="{{ url_for('admin_application',item_id=item.id) }}">
+          <div><b>{{ item.minecraft_name }}</b><span>{{ item.area }} · {{ item.discord_name }} · {{ item.created_at.strftime('%d/%m/%Y às %H:%M') }}</span></div>
+          <em class="status">{{ item.status }}</em>
+        </a>
+        <form method="post" action="{{ url_for('delete_application',item_id=item.id) }}" onsubmit="return confirm('Deseja realmente excluir esta candidatura?');"><button class="application-delete" type="submit">Excluir</button></form>
+      </article>
+    {% else %}<div class="content-manager"><p class="empty-manager">Nenhuma candidatura recebida.</p></div>{% endfor %}
+  </div>
+</section>
+{% endblock %}

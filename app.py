@@ -314,11 +314,17 @@ def logout():
 @admin_required
 def admin():
     counts = {"noticias": db.session.scalar(db.select(func.count(News.id))), "videos": db.session.scalar(db.select(func.count(Video.id))), "profissionais": db.session.scalar(db.select(func.count(Professional.id))), "eventos": db.session.scalar(db.select(func.count(Event.id))), "candidaturas": db.session.scalar(db.select(func.count(Application.id)))}
-    applications = db.session.execute(db.select(Application).order_by(Application.created_at.desc()).limit(10)).scalars().all()
     news_items = db.session.execute(db.select(News).order_by(News.created_at.desc())).scalars().all()
     video_items = db.session.execute(db.select(Video).order_by(Video.created_at.desc())).scalars().all()
     professional_items = db.session.execute(db.select(Professional).order_by(Professional.id.desc())).scalars().all()
-    return render_template("admin.html", counts=counts, applications=applications, news_items=news_items, video_items=video_items, professional_items=professional_items)
+    return render_template("admin.html", counts=counts, news_items=news_items, video_items=video_items, professional_items=professional_items)
+
+
+@app.route("/admin/candidaturas")
+@admin_required
+def admin_applications():
+    applications = db.session.execute(db.select(Application).order_by(Application.created_at.desc())).scalars().all()
+    return render_template("admin_applications.html", applications=applications)
 
 
 @app.route("/admin/evento", methods=["GET", "POST"])
@@ -447,7 +453,7 @@ def delete_application(item_id):
     db.session.delete(item)
     db.session.commit()
     flash("Candidatura excluída.", "success")
-    return redirect(url_for("admin"))
+    return redirect(url_for("admin_applications"))
 
 
 @app.route("/saude")
