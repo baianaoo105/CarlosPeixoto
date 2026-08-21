@@ -407,6 +407,16 @@ def admin_application(item_id):
     return render_template("application_review.html", item=item, answers=json.loads(item.answers))
 
 
+@app.route("/admin/candidatura/<int:item_id>/excluir", methods=["POST"])
+@admin_required
+def delete_application(item_id):
+    item = db.get_or_404(Application, item_id)
+    db.session.delete(item)
+    db.session.commit()
+    flash("Candidatura excluída.", "success")
+    return redirect(url_for("admin"))
+
+
 @app.route("/saude")
 def health(): return {"status": "ok"}
 
